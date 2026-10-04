@@ -23,7 +23,12 @@ export type { AgentStatus, AgentMetricsSummary };
  *   attribution and Agent Hub observability, but never a peer — hidden from
  *   agent-facing rosters (`proc://`, `history://`) and not messageable/revivable.
  */
-export type AgentKind = "main" | "sub" | "advisor";
+/**
+ * Who an agent is relative to this process. `external` is a peer running in
+ * another process or on another device: it has no local session, so only its
+ * status, activity, and (when the host provides one) transcript are available.
+ */
+export type AgentKind = "main" | "sub" | "advisor" | "external";
 
 /**
  * Run lifecycle milestones, stamped as they happen and scoped to the CURRENT

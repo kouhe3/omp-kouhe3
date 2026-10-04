@@ -265,6 +265,17 @@ export interface AgentHubRemoteTranscript {
 	error?: string;
 }
 
+/**
+ * Change-tracking line for a ref. External peers edit files on their own host,
+ * so claiming "read-only, 0 LoC" for them would be a lie about work this
+ * workspace cannot see.
+ */
+function changesSummary(ref: AgentRecordLike): string {
+	if (ref.kind === "external") return "External peer · changes tracked on its host";
+	if (ref.kind === "advisor" || ref.history?.readOnly) return "Read-only · 0 LoC";
+	return "Shared workspace · per-agent LoC not attributable";
+}
+
 /** Guest-side proxy for hub actions executed on the collab host. */
 export interface AgentHubRemote {
 	chat(id: string, text: string): void;
@@ -929,6 +940,9 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			badges.push({ text: sanitizeDisplaySingleLine(info.tag ?? info.name ?? modelRole), title: "Model role" });
 		}
 		if (ref.kind === "advisor") badges.push({ text: "read-only", tone: "warning" });
+		if (ref.kind === "external") {
+			badges.push({ text: "external", tone: "muted", title: "Peer session running outside this process" });
+		}
 		const unread = this.#irc.unreadCount(ref.id);
 		if (unread > 0) badges.push({ text: `${unread} unread`, tone: "warning" });
 		if (this.#viewMode === "roster" && ref.parentId && ref.parentId !== MAIN_AGENT_ID) {
@@ -1400,14 +1414,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		facts.push({ k: "Registered", v: [span(formatLocalDateTimeWithOffset(new Date(ref.createdAt)), "dim")] });
 		facts.push({
 			k: "Changes",
-			v: [
-				span(
-					ref.kind === "advisor" || ref.history?.readOnly
-						? "Read-only · 0 LoC"
-						: "Shared workspace · per-agent LoC not attributable",
-					"dim",
-				),
-			],
+			v: [span(changesSummary(ref), "dim")],
 		});
 		const artifacts = ref.history;
 		if (artifacts?.outputPath) {
@@ -2099,14 +2106,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		add(theme.fg("dim", `Registered ${formatLocalDateTimeWithOffset(new Date(ref.createdAt))}`));
 
 		section("Changes");
-		add(
-			theme.fg(
-				"dim",
-				ref.kind === "advisor" || ref.history?.readOnly
-					? "Read-only · 0 LoC"
-					: "Shared workspace · per-agent LoC not attributable",
-			),
-		);
+		add(theme.fg("dim", changesSummary(ref)));
 		const artifacts = ref.history;
 		if (artifacts?.outputPath) addWrapped(`Output ${shortenPath(artifacts.outputPath)}`);
 		if (artifacts?.patchPath) addWrapped(`Patch ${shortenPath(artifacts.patchPath)}`);
@@ -2158,9 +2158,8 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		if (this.#viewMode === "roster" && ref.parentId && ref.parentId !== MAIN_AGENT_ID) {
 			fields.push(theme.fg("dim", `↳ ${sanitizeDisplaySingleLine(ref.parentId)}`));
 		}
-		if (ref.kind === "advisor") {
-			fields.push(theme.fg("warning", "read-only"));
-		}
+		if (ref.kind === "advisor") fields.push(theme.fg("warning", "read-only"));
+		else if (ref.kind === "external") fields.push(theme.fg("dim", "external"));
 		const unread = this.#irc.unreadCount(ref.id);
 		if (unread > 0) {
 			fields.push(theme.fg("warning", `⧉ ${unread}`));
@@ -2494,9 +2493,15 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#activateAgent(ref: TRecord): void {
 		this.#notice = undefined;
 		const focusAgent = this.#focusAgent;
-		// Aborted agents and advisor refs are read-only transcripts with no
-		// revivable session; open the in-hub viewer instead of failing ensureLive.
-		if (ref.kind === "advisor" || ref.status === "aborted" || this.#remote || !focusAgent) {
+		// Aborted agents, advisors, and peers are read-only transcripts with no
+		// local session; open the in-hub viewer instead of failing ensureLive.
+		if (
+			ref.kind === "advisor" ||
+			ref.kind === "external" ||
+			ref.status === "aborted" ||
+			this.#remote ||
+			!focusAgent
+		) {
 			this.openChat(ref.id);
 			return;
 		}
@@ -2514,6 +2519,11 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#reviveSelected(): void {
 		const ref = this.#rows[this.#selectedRow];
 		if (!ref) return;
+		if (ref.kind === "external") {
+			this.#notice = `"${ref.id}" runs outside this session — revive it on its own host.`;
+			this.#requestRender();
+			return;
+		}
 		if (ref.kind === "advisor") {
 			this.#notice = `"${ref.id}" is a read-only advisor transcript — nothing to revive.`;
 			this.#requestRender();
@@ -2543,6 +2553,11 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#killSelected(): void {
 		const ref = this.#rows[this.#selectedRow];
 		if (!ref) return;
+		if (ref.kind === "external") {
+			this.#notice = `"${ref.id}" runs outside this session — stop it on its own host.`;
+			this.#requestRender();
+			return;
+		}
 		if (ref.kind === "advisor") {
 			this.#notice = `"${ref.id}" is a read-only advisor transcript — cannot be killed.`;
 			this.#requestRender();

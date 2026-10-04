@@ -315,6 +315,7 @@
 ### Added
 
 - Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
+- The agent registry accepts `external` peers: session-less roster entries for agents running outside this process, with peer-published status and activity, and no local focus, kill, or revive.
 
 ### Fixed
 

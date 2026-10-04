@@ -104,6 +104,10 @@
 - Fixed native tooltips (composer, working row, queue, pause screen, git and extension dashboards) naming keys with Nerd Font icons Tern's UI font lacks, or as raw key ids (`ctrl+g`); they use keycap glyphs (`⇧⇥`, `⌃G`)
 - Fixed Tern's per-turn usage row showing a 24-hour time on a 12-hour terminal clock; the row and its tooltip now follow the terminal's clock, keeping the tooltip's ISO date ([#14565](https://github.com/can1357/oh-my-pi/pull/14565) by [@wolfiesch](https://github.com/wolfiesch))
 - Fixed hold-Space push-to-talk stopping the instant recording began (showing "No speech detected.") when opening the microphone briefly froze the UI ([#14463](https://github.com/can1357/oh-my-pi/pull/14463) by [@pgkt04](https://github.com/pgkt04))
+### Added
+
+- The agent roster lists external peers (agents running on another host) as read-only entries: they carry the status and activity their own host publishes, their transcript opens in the Hub when that host makes a session file readable, and focus/kill/revive say to act on their host instead.
+
 ### Fixed
 
 - Fixed the Nerd Font status-line brand icon rendering as a rotating arrow instead of π ([#11802](https://github.com/can1357/oh-my-pi/issues/11802), [#12570](https://github.com/can1357/oh-my-pi/pull/12570) by [@kouhe3](https://github.com/kouhe3)).

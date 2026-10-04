@@ -235,10 +235,10 @@ export class AgentTranscriptViewer implements Component {
 		this.#pollTimer.unref?.();
 	}
 
-	/** Advisor and aborted-agent transcripts are read-only. */
+	/** Advisor, external-peer, and aborted-agent transcripts are read-only. */
 	get #sendable(): boolean {
 		const ref = this.#deps.registry.get(this.#deps.agentId);
-		if (!ref || ref.kind === "advisor" || ref.status === "aborted") return false;
+		if (!ref || ref.kind === "advisor" || ref.kind === "external" || ref.status === "aborted") return false;
 		return Boolean(this.#deps.remote || this.#deps.lifecycle);
 	}
 
@@ -864,7 +864,14 @@ export class AgentTranscriptViewer implements Component {
 			if (this.#remoteUnavailable) return "Transcript lives on the host — not available.";
 			return this.#hasRemoteData ? "No messages yet." : "Loading transcript from host…";
 		}
-		if (!this.#deps.registry.get(this.#deps.agentId)?.sessionFile) return "No session file available yet.";
+		const ref = this.#deps.registry.get(this.#deps.agentId);
+		if (!ref?.sessionFile) {
+			// A peer's transcript only exists here when its host published a
+			// readable session file; "yet" would imply one is coming.
+			return ref?.kind === "external"
+				? "External peer — no transcript on this host."
+				: "No session file available yet.";
+		}
 		return "No messages yet.";
 	}
 }
