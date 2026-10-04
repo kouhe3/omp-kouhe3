@@ -77,6 +77,9 @@ export function sumSubagentTreeCost(args: {
 	const observedById = new Map<string, ObservableSession>();
 	for (const ref of args.refs) {
 		if (ref.id === MAIN_AGENT_ID) continue;
+		// A peer's spend is billed to the host that runs it, never to this
+		// session's subagent tree (its published session file may live here).
+		if (ref.kind === "external") continue;
 		if (ref.kind === "advisor" && (ref.parentId ?? MAIN_AGENT_ID) === MAIN_AGENT_ID) continue;
 		const observed = observers.getSession(ref.id);
 		const inTree = ref.sessionFile

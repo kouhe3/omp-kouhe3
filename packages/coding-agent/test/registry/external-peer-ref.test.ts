@@ -4,7 +4,7 @@
  * never claims a session file.
  */
 import { describe, expect, it } from "bun:test";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
+import { AgentRegistry, isLocalAgentRef } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 
 const PEER_ID = "peer@dev2";
 
@@ -58,6 +58,16 @@ describe("external peer refs", () => {
 		expect(registry.isRunning(peer)).toBe(false);
 		registry.setStatus(PEER_ID, "idle");
 		expect(registry.isRunning(peer)).toBe(false);
+	});
+
+	it("is never addressable as a local peer: not listed to agents, not a local ref", () => {
+		const registry = new AgentRegistry();
+		const peer = registerPeer(registry);
+
+		// Agent-facing rosters (`agent://` targeting, the peer roster, broadcast)
+		// must not advertise a recipient this process cannot deliver to.
+		expect(registry.listVisibleTo("Main")).toEqual([]);
+		expect(isLocalAgentRef(peer)).toBe(false);
 	});
 
 	it("lets a returning peer reclaim its parked id, and only that generation", () => {

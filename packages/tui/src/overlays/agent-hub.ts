@@ -892,7 +892,14 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 
 	#agentPickerProps(): PickerBody {
 		const selected = this.#rows[this.#selectedRow];
-		const readOnly = selected?.kind === "advisor" ? "Read-only advisor transcript" : undefined;
+		// Advisors are read-only transcripts and external peers act on their own
+		// host: neither can be revived or killed from this session.
+		const readOnly =
+			selected?.kind === "advisor"
+				? "Read-only advisor transcript"
+				: selected?.kind === "external"
+					? "External peer — act on its own host"
+					: undefined;
 		const actions: TspPickerAction[] = [
 			{
 				id: "open",

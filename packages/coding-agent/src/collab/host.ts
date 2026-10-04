@@ -23,7 +23,7 @@ import type {
 } from "@oh-my-pi/pi-wire";
 import type { InteractiveModeContext } from "../modes/types";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
-import { type AgentRef, AgentRegistry } from "../registry/agent-registry";
+import { type AgentRef, AgentRegistry, isLocalAgentRef } from "../registry/agent-registry";
 import type { AgentSessionEvent } from "../session/agent-session";
 import { stripImagesFromMessage, USER_INTERRUPT_LABEL } from "../session/messages";
 import type { SessionEntry as StoredSessionEntry } from "../session/session-entries";
@@ -1121,10 +1121,11 @@ export class CollabHost {
 		return (
 			AgentRegistry.global()
 				.list()
-				// Advisor transcripts are local observability only; never mirror them to
-				// guests (the wire AgentSnapshot kind has no `advisor`, and guests must not
-				// be able to chat/kill/revive them).
-				.filter((ref): ref is AgentRef & { kind: "main" | "sub" } => ref.kind !== "advisor")
+				// Advisor transcripts and external peers are local observability only;
+				// never mirror them to guests (the wire `AgentSnapshot.kind` is
+				// `main | sub`, and guests must not be able to chat/kill/revive a
+				// transcript or act on a peer's host).
+				.filter((ref): ref is AgentRef & { kind: "main" | "sub" } => isLocalAgentRef(ref))
 				.map(ref => ({
 					id: ref.id,
 					displayName: ref.displayName,
@@ -1156,6 +1157,12 @@ export class CollabHost {
 		// a stale/malicious client must never chat/kill/revive a read-only advisor transcript.
 		if (AgentRegistry.global().get(agentId)?.kind === "advisor") {
 			this.#send({ t: "error", message: `agent ${agentId}: advisor transcripts are read-only` }, fromPeer);
+			return;
+		}
+		// Same for peers: `revive` would fail locally and `kill` would release a
+		// roster row this host does not own.
+		if (AgentRegistry.global().get(agentId)?.kind === "external") {
+			this.#send({ t: "error", message: `agent ${agentId}: external peers run on their own host` }, fromPeer);
 			return;
 		}
 		const fail = (err: unknown) => {

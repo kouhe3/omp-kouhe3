@@ -315,11 +315,7 @@
 ### Added
 
 - Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
-- The agent registry accepts `external` peers, and main sessions expose `ctx.externalAgents` to publish them: session-less roster entries carrying peer-reported status and activity, read-only in the Hub (focus, kill, and revive say to act on the peer's own host), with each publisher able to drive only the rows it announced.
-
-### Fixed
-
-- Fixed follow-up hashline edits being rejected as anchored on lines "never displayed" after an earlier edit shifted those lines, when the replacement carries the anchored content; genuinely stale line numbers are still rejected ([#14254](https://github.com/can1357/oh-my-pi/pull/14254) by [@abilliontokens](https://github.com/abilliontokens)).
+- The agent registry accepts `external` peers, and main sessions expose `ctx.externalAgents` to publish them: session-less roster entries carrying peer-reported status and activity, shown in the Agent Hub only (agent-facing rosters, focus targets, peer messaging, and collab guests skip them), read-only there (kill/revive say to act on the peer's own host), with each publisher able to drive only the rows it announced.
 
 ## [18.6.1] - 2026-10-04
 

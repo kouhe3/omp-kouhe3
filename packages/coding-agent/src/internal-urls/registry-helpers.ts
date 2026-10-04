@@ -7,7 +7,7 @@ import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isEnoent } from "@oh-my-pi/pi-utils";
-import { AgentRegistry } from "../registry/agent-registry";
+import { AgentRegistry, isLocalAgentRef } from "../registry/agent-registry";
 
 const extraArtifactsDirs = new Set<string>();
 /** Deepest nesting `sessionFilesFromDisk` descends below an artifacts dir. */
@@ -147,8 +147,8 @@ export async function hasResolvableTranscript(agentId: string): Promise<boolean>
 		const registry = AgentRegistry.global();
 		const lower = agentId.toLowerCase();
 		let ref = registry.get(agentId);
-		if (ref?.kind === "advisor") ref = undefined;
-		ref ??= registry.list().find(candidate => candidate.kind !== "advisor" && candidate.id.toLowerCase() === lower);
+		if (ref && !isLocalAgentRef(ref)) ref = undefined;
+		ref ??= registry.list().find(candidate => isLocalAgentRef(candidate) && candidate.id.toLowerCase() === lower);
 		if (ref?.session) return true;
 		if (ref?.sessionFile && (await isReadableFile(ref.sessionFile))) return true;
 		const files = await sessionFilesFromDisk();

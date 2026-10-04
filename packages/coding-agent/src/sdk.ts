@@ -3292,9 +3292,14 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			: undefined;
 		// Peers are a top-level notion: only a main session publishes roster rows
 		// for agents running outside this process, and its teardown drops them so
-		// the shared registry never keeps a dead session's ghosts.
-		const scopedExternalAgents =
-			hasSession && !isSubagentSession ? createScopedExternalAgents(agentRegistry, resolvedAgentId) : undefined;
+		// the shared registry never keeps a dead session's ghosts. `hasSession` is
+		// still false here (the session is constructed further down, and this
+		// block only runs on the path that builds it), so the gate is
+		// subagent-ness alone — reading `hasSession` here would disable the
+		// surface for every session.
+		const scopedExternalAgents = isSubagentSession
+			? undefined
+			: createScopedExternalAgents(agentRegistry, resolvedAgentId);
 		if (scopedExternalAgents) disposeCallbacks.add(() => scopedExternalAgents.dispose());
 		const extensionRunner: ExtensionRunner = new ExtensionRunner(
 			extensionsResult.extensions,

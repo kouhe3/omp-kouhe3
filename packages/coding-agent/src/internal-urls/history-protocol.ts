@@ -21,7 +21,7 @@ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
 import { LRUCache } from "@oh-my-pi/pi-utils/lru";
 import type { AgentRef } from "../registry/agent-registry";
-import { AgentRegistry } from "../registry/agent-registry";
+import { AgentRegistry, isLocalAgentRef } from "../registry/agent-registry";
 import { ensurePersistedRoster } from "../registry/persisted-agents";
 import { formatSessionHistoryMarkdown } from "../session/session-history-format";
 import {
@@ -346,9 +346,10 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 		// same-named transcript restored by another root's scan never shadows
 		// this caller's own on-disk transcript.
 		const preferredArtifactDir = rootSessionFile?.slice(0, -".jsonl".length);
-		// Advisor transcripts are observability-only — surfaced in the Agent Hub, never
-		// in the agent-facing roster. Hide them from the index, lookup, and completions.
-		const visible = registry.list().filter(ref => ref.kind !== "advisor");
+		// Advisor transcripts and external peers are roster-only rows — surfaced in the
+		// Agent Hub, never in the agent-facing roster. Hide them from the index,
+		// lookup, and completions.
+		const visible = registry.list().filter(isLocalAgentRef);
 		return { visible, preferredArtifactDir };
 	}
 
@@ -359,7 +360,7 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 	async #lookup(agentId: string, context: ResolveContext | undefined): Promise<RefLookup> {
 		const { visible, preferredArtifactDir } = await this.#roster(context);
 		let ref = AgentRegistry.global().get(agentId);
-		if (ref?.kind === "advisor") ref = undefined;
+		if (ref && !isLocalAgentRef(ref)) ref = undefined;
 		if (!ref) {
 			// Case-insensitive fallback: agent ids are human-typed (e.g. AuthLoader).
 			const lower = agentId.toLowerCase();
@@ -512,7 +513,7 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 		const completions: UrlCompletion[] = [];
 		const seen = new Set<string>();
 		for (const ref of AgentRegistry.global().list()) {
-			if (ref.kind === "advisor") continue;
+			if (!isLocalAgentRef(ref)) continue;
 			seen.add(ref.id);
 			completions.push({
 				value: ref.id,

@@ -84,6 +84,24 @@ describe("scoped external agents", () => {
 		expect(other.remove("peer@dev2")).toBe(false);
 	});
 
+	it("refuses to refresh a peer row another scope published", () => {
+		const registry = new AgentRegistry();
+		const mine = createScopedExternalAgents(registry, "Main");
+		const other = createScopedExternalAgents(registry, "Other");
+		mine.upsert({ id: "peer@dev2", displayName: "dev2", status: "running", activity: "building" });
+
+		// `upsert` is the write path setStatus/remove gate: without the ownership
+		// check a second scope could adopt (rewrite, then delete) the row.
+		other.upsert({ id: "peer@dev2", displayName: "hijacked", status: "parked", activity: "spoofed" });
+
+		const ref = registry.get("peer@dev2");
+		expect(ref?.displayName).toBe("dev2");
+		expect(ref?.status).toBe("running");
+		expect(ref?.activity).toBe("building");
+		expect(other.remove("peer@dev2")).toBe(false);
+		expect(registry.get("peer@dev2")).toBeDefined();
+	});
+
 	it("drops every published row on dispose without touching anyone else's", () => {
 		const registry = new AgentRegistry();
 		withLocalMain(registry);

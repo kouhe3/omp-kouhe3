@@ -10,7 +10,9 @@
  *   agent already owns (the Hub's `Main` is the obvious target).
  * - `setStatus`/`setActivity`/`remove` only act on rows the same scope
  *   published, so one extension cannot drive another's peers — or the local
- *   roster.
+ *   roster. A scope claims the ids it announced: `upsert` refreshes those rows
+ *   in place and refuses an id another scope already published as a peer, so a
+ *   second extension can neither forge nor adopt (and then remove) them.
  * - Nothing here gives control over the peer. It is a *roster* surface: the
  *   registry never focuses, kills, or revives an external row, and `isRunning`
  *   stays false for it because no local session corroborates the claim.
@@ -79,6 +81,13 @@ export function createScopedExternalAgents(registry: AgentRegistry, ownerId: str
 				});
 				return;
 			}
+
+			if (existing && !published.has(id)) {
+				// Another scope's peer: refreshing it here would let this publisher
+				// rewrite (and later remove) a row it never announced.
+				logger.warn("External agent registration refused: id belongs to another publisher", { id, ownerId });
+				return;
+			}
 			if (existing) {
 				// Same peer coming back or re-announcing: refresh in place, and let
 				// the publisher's own activity/status stand (setStatus drops
@@ -100,7 +109,10 @@ export function createScopedExternalAgents(registry: AgentRegistry, ownerId: str
 				session: null,
 				sessionFile: input.sessionFile ?? null,
 				status: input.status ?? "running",
-				activity: input.activity,
+				// Only a running peer has current work; activity on an idle row would
+				// display as stale work in the roster (`setActivity` refuses it for any
+				// non-running status, and registration must match).
+				activity: (input.status ?? "running") === "running" ? input.activity : undefined,
 				history: input.history,
 			});
 			published.add(id);
@@ -121,6 +133,9 @@ export function createScopedExternalAgents(registry: AgentRegistry, ownerId: str
 			return registry.unregister(id, ref);
 		},
 		dispose() {
+			// Iterate a copy: `remove` mutates `published`, and `owned` may drop
+			// further ids, which would skip unvisited entries mid-iteration.
+			// oxlint-disable-next-line unicorn/no-useless-spread -- mutation during iteration
 			for (const id of [...published]) this.remove(id);
 		},
 	};

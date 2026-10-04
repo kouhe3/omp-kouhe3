@@ -552,6 +552,43 @@ describe("history:// protocol", () => {
 		expect(values).not.toContain("AdvisorProbe");
 	});
 
+	it("keeps external peers out of the index, lookup, and completions", async () => {
+		AgentRegistry.global().register({
+			id: "HubAgent",
+			displayName: "task",
+			kind: "sub",
+			session: fakeLiveSession([]),
+			status: "idle",
+		});
+		AgentRegistry.global().register({
+			id: "peer@dev2",
+			displayName: "dev2",
+			kind: "external",
+			session: null,
+			sessionFile: null,
+			status: "running",
+		});
+
+		// A peer's transcript lives on its own host: the agent-facing index must
+		// not advertise one this process cannot serve.
+		const index = await InternalUrlRouter.instance().resolve("history://");
+		expect(index.content).toContain("HubAgent");
+		expect(index.content).not.toContain("peer@dev2");
+
+		const error = await InternalUrlRouter.instance()
+			.resolve("history://peer@dev2")
+			.then(
+				() => null,
+				err => err as Error,
+			);
+		expect(error).toBeInstanceOf(Error);
+		expect(error?.message).toContain("Unknown agent");
+
+		const values = (await new HistoryProtocolHandler().complete()).map(c => c.value);
+		expect(values).toContain("HubAgent");
+		expect(values).not.toContain("peer@dev2");
+	});
+
 	it("history://<id> serves an unregistered subagent's transcript from disk", async () => {
 		await withTempDir(async dir => {
 			const sessionFile = path.join(dir, "session.jsonl");

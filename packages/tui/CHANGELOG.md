@@ -106,7 +106,7 @@
 - Fixed hold-Space push-to-talk stopping the instant recording began (showing "No speech detected.") when opening the microphone briefly froze the UI ([#14463](https://github.com/can1357/oh-my-pi/pull/14463) by [@pgkt04](https://github.com/pgkt04))
 ### Added
 
-- The agent roster lists external peers (agents running on another host) as read-only entries: they carry the status and activity their own host publishes, their transcript opens in the Hub when that host makes a session file readable, and focus/kill/revive say to act on their host instead.
+- The agent roster lists external peers (agents running on another host) as read-only entries: they carry the status and activity their own host publishes, their transcript opens in the Hub when that host makes a session file readable, and kill/revive say to act on their host instead (the Hub is the only place they appear — agent-facing rosters, the focus cycle, and collab guests skip them).
 
 ### Fixed
 

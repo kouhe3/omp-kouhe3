@@ -57,7 +57,7 @@ import subagentAsyncPendingTemplate from "../prompts/system/subagent-async-pendi
 import subagentSystemPromptTemplate from "../prompts/system/subagent-system-prompt.md" with { type: "text" };
 import submitReminderTemplate from "../prompts/system/subagent-yield-reminder.md" with { type: "text" };
 import { AgentLifecycleManager, type AgentReviver } from "../registry/agent-lifecycle";
-import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
+import { AgentRegistry, MAIN_AGENT_ID, isLocalAgentRef } from "../registry/agent-registry";
 import { ensurePersistedRoster, isCurrentSessionRosterRef } from "../registry/persisted-agents";
 import {
 	type CreateAgentSessionOptions,
@@ -374,7 +374,7 @@ export function collectIrcPeerRoster(
 	for (const ref of registry.list()) {
 		if (
 			ref.id !== selfId &&
-			ref.kind !== "advisor" &&
+			isLocalAgentRef(ref) &&
 			ref.status === "parked" &&
 			isCurrentSessionRosterRef(ref, rootSessionFile)
 		) {
