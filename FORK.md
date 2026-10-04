@@ -100,18 +100,20 @@ interface HostAsyncJobs {
 ```bash
 cd ~/.omp/agent/extensions/pwsh7
 bun scripts/pack-fork-dep.ts          # 可加 --fork <path> / --vendor <dir>
-# packed vendor\pi-coding-agent-304a44d8.tgz (fork 304a44d8, v18.6.0)
+# packed vendor\pi-coding-agent-012e804e.tgz (packages/coding-agent@012e804e, v18.6.0)
 bun install && bun run typecheck && bun test
 ```
+
+`vendor/` 不入库，所以 **fresh clone 要先跑这个脚本**（脚本只用 bun/node 内置 + `bun x tsgo`，不需要 node_modules；另一台机器的 fork checkout 用 `--fork` 指过去）。不先跑的话 `bun install` 会因缺 tarball 失败——除非 bun 缓存里恰好有同一份产物，那是运气，不是保障。
 
 脚本行为：
 
 1. 在 `<fork>/packages/coding-agent` 跑 `bun x tsgo -p tsconfig.publish.json` → `dist/types/**/*.d.ts`；
-2. 就地重指 manifest（`types` + 118 条 `exports[*].types` → `./dist/types/…`，并把 `dist/types` 加进 `files`）后 `bun pm pack`，产物按 fork sha 命名放进扩展的 `vendor/`（`.gitignore` 已忽略）；
-3. 自动把扩展 `package.json` 的 devDependency 改成 `file:vendor/pi-coding-agent-<sha>.tgz`；
+2. 就地重指 manifest（`types` + 118 条 `exports[*].types` → `./dist/types/…`，并把 `dist/types` 加进 `files`）后 `bun pm pack`，产物按 **`packages/coding-agent` 子树 hash** 命名进扩展的 `vendor/`：`pi-coding-agent-<tree8>.tgz`。用子树而不是 HEAD——根目录的 docs 提交不会改名，实测 `304a44d89e` 与 `bca1fe582c` 的子树都是 `012e804e`；
+3. 自动把扩展 `package.json` 的 devDependency 改成 `file:vendor/pi-coding-agent-<tree8>.tgz`；
 4. `finally` 里还原 fork manifest——**fork checkout 跑完保持干净**（只剩 untracked `FORK.md`）。
 
-实测（2026-10-04，fork `304a44d8`，v18.6.0）：
+实测（2026-10-04，fork `kouhe3-patch` = `bca1fe582c`，包 v18.6.0，devDep = `file:vendor/pi-coding-agent-012e804e.tgz`）：
 
 ```
 bun install      → 160 packages installed
