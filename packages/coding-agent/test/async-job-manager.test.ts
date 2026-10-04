@@ -1110,4 +1110,25 @@ describe("AsyncJobManager scoped plugin jobs", () => {
 		expect(manager.getAllJobs({ ownerId: "Sub" })).toEqual([]);
 		await manager.waitForAll();
 	});
+
+	test("scoped cancel refuses a job this scope did not register, even under the same owner", async () => {
+		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
+		const jobs = createScopedAsyncJobs(manager, "Main");
+		const release = Promise.withResolvers<void>();
+		const body = async () => {
+			await release.promise;
+			return "done";
+		};
+		// The session's own job: same owner id, different scope.
+		const builtinId = manager.register("bash", "builtin: long build", body, { ownerId: "Main" });
+		const pluginId = jobs.register("pwsh", "plugin: long build", body);
+
+		expect(jobs.cancel(builtinId)).toBe(false);
+		expect(manager.getJob(builtinId)?.status).toBe("running");
+		expect(jobs.cancel(pluginId)).toBe(true);
+		expect(manager.getJob(pluginId)?.status).toBe("cancelled");
+
+		release.resolve();
+		await manager.waitForAll();
+	});
 });
