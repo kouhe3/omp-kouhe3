@@ -57,8 +57,13 @@ export function buildAsyncResultBlock(message: CustomOrHookMessage): ToolActivit
 				];
 	const rows: TranscriptStatusRow[] = [];
 	for (const job of jobs) {
-		const jobId = job.jobId ?? "unknown";
-		const typeLabel = job.type ? `[${job.type}]` : "[job]";
+		// These details come from a persisted `async-result` message, so an
+		// extension (or an older build) may have written any bytes: sanitize the
+		// kind and id before they reach a row.
+		const jobId = truncateToWidth(replaceTabs(job.jobId ?? "unknown"), TRUNCATE_LENGTHS.SHORT);
+		const typeLabel = job.type
+			? `[${truncateToWidth(replaceTabs(String(job.type)), TRUNCATE_LENGTHS.SHORT)}]`
+			: "[job]";
 		const duration = typeof job.durationMs === "number" ? formatDuration(job.durationMs) : undefined;
 		rows.push({
 			parts: [

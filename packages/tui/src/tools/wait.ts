@@ -47,7 +47,12 @@ export type CoordinationOp = "send" | "wait" | "jobs" | "cancel";
 /** Background-job row surfaced by `wait`/`cancel`/`jobs` results. */
 export interface JobSnapshot {
 	id: string;
-	type: "bash" | "task" | "eval";
+	/**
+	 * Job kind. Built-ins are `bash`, `task`, and `eval`; extensions register
+	 * their own kinds (e.g. `pwsh`), so this is an open identifier rather than a
+	 * closed union.
+	 */
+	type: string;
 	status: "running" | "completed" | "failed" | "cancelled";
 	label: string;
 	durationMs: number;

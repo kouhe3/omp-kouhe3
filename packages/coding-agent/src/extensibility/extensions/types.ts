@@ -72,6 +72,7 @@ import type { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
 import type { ComposerShapeDefinition } from "@oh-my-pi/pi-tui/overlays/composer-shape-registry";
 export type { ComposerShapeDefinition } from "@oh-my-pi/pi-tui/overlays/composer-shape-registry";
 import type { ModelRegistry } from "../../config/model-registry";
+import type { ScopedAsyncJobs } from "../../async";
 import type { EditToolDetails } from "@oh-my-pi/pi-tui/tools/edit";
 import type { PythonResult } from "../../eval/py/executor";
 import type { BashResult } from "../../exec/bash-executor";
@@ -483,6 +484,8 @@ export interface ExtensionAgentIdentity {
 }
 
 export interface ExtensionContext {
+	/** Owner-scoped background jobs surfaced through hub jobs/wait/cancel. */
+	asyncJobs?: ScopedAsyncJobs;
 	/** UI methods for user interaction */
 	ui: ExtensionUIContext;
 	/** Current run mode. Use `"tui"` to guard terminal-only UI such as custom components. */

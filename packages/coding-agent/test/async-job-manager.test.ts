@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
 import { scheduler } from "node:timers/promises";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { AsyncJobError, AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
+import { AsyncJobError, AsyncJobManager, createScopedAsyncJobs } from "@oh-my-pi/pi-coding-agent/async/job-manager";
 
 async function waitForJobEviction(manager: AsyncJobManager, jobId: string): Promise<void> {
 	const deadline = Date.now() + 2_000;
@@ -1008,5 +1008,70 @@ describe("AsyncJobManager", () => {
 		manager.cancelAll({ ownerId: "Sub" });
 		await expect(reap).resolves.toBe(true);
 		expect(manager.getJob("hung-1")?.status).toBe("cancelled");
+	});
+});
+
+describe("AsyncJobManager scoped plugin jobs", () => {
+	test("plugin kinds ride the normal job lifecycle under one fixed owner", async () => {
+		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
+		const jobs = createScopedAsyncJobs(manager, "Main");
+		const release = Promise.withResolvers<void>();
+		const jobId = jobs.register("pwsh", "pwsh: long build", async ({ signal }) => {
+			const aborted = Promise.withResolvers<void>();
+			signal.addEventListener("abort", () => aborted.resolve(), { once: true });
+			await Promise.race([release.promise, aborted.promise]);
+			return "build done";
+		});
+
+		// The plugin-defined kind is preserved verbatim, and only its owner sees it.
+		expect(manager.getAllJobs({ ownerId: "Main" }).map(job => job.type)).toEqual(["pwsh"]);
+		expect(manager.getAllJobs({ ownerId: "Sub" })).toEqual([]);
+		expect(manager.cancel(jobId, { ownerId: "Sub" })).toBe(false);
+		expect(manager.cancel(jobId, { ownerId: "Main" })).toBe(true);
+
+		release.resolve();
+		await manager.waitForAll();
+		expect(manager.getJob(jobId)?.status).toBe("cancelled");
+	});
+
+	test("rejects unsafe plugin job kinds before creating a job", () => {
+		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
+		const jobs = createScopedAsyncJobs(manager, "Main");
+		const run = async () => "done";
+		const unsafeKinds = [
+			"",
+			"Plugin",
+			"video generation",
+			"video\tgeneration",
+			"video\ngeneration",
+			"\x1b[2Jvideo",
+			"a".repeat(65),
+		];
+
+		for (const kind of unsafeKinds) {
+			expect(() => jobs.register(kind, "plugin job", run)).toThrow(/Background job kind must be/);
+		}
+		expect(manager.getAllJobs()).toEqual([]);
+	});
+
+	test("scoped options cannot impersonate an owner, claim an agent, or mint a job id", async () => {
+		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
+		const jobs = createScopedAsyncJobs(manager, "Main");
+		const jobId = jobs.register("pwsh", "plugin job", async () => "ok", {
+			// A JavaScript caller can pass fields the type omits; the surface must
+			// drop every one of them rather than spreading the options through.
+			id: "forged\tid",
+			agentId: "Sub",
+			ownerId: "Sub",
+			foreground: true,
+		} as never);
+
+		expect(jobId).not.toBe("forged\tid");
+		const job = manager.getJob(jobId);
+		expect(job?.ownerId).toBe("Main");
+		expect(job?.agentId).toBeUndefined();
+		expect(job?.foreground).toBeUndefined();
+		expect(manager.getAllJobs({ ownerId: "Sub" })).toEqual([]);
+		await manager.waitForAll();
 	});
 });

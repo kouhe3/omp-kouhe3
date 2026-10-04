@@ -312,6 +312,13 @@
 - Fixed snapcompact's short final frames preventing vision-backed sessions from continuing on backends that reject 32px-or-smaller images ([#14355](https://github.com/can1357/oh-my-pi/issues/14355)).
 - Fixed the agent's `goal` calls asking for approval under `--approval-mode write`, which paused goal-mode loops at `complete`; `always-ask` still prompts for goal changes but not `get` ([#14368](https://github.com/can1357/oh-my-pi/issues/14368))
 - Fixed MCP server connection progress popping up a toast for every server that connects or fails in native terminals such as Tern; it now shows only in the classic terminal transcript
+### Added
+
+- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
+
+### Fixed
+
+- Fixed follow-up hashline edits being rejected as anchored on lines "never displayed" after an earlier edit shifted those lines, when the replacement carries the anchored content; genuinely stale line numbers are still rejected ([#14254](https://github.com/can1357/oh-my-pi/pull/14254) by [@abilliontokens](https://github.com/abilliontokens)).
 
 ## [18.6.1] - 2026-10-04
 

@@ -42,8 +42,26 @@ const DEFAULT_MAX_RUNNING_JOBS = 15;
 /** Abort reason used only when the owning session shuts down the entire manager. */
 export const ASYNC_JOB_MANAGER_SHUTDOWN_REASON = Symbol("AsyncJobManager shutdown");
 
-/** Kind of work a managed job runs; drives job-row badges and delivery labels. */
-export type AsyncJobType = "bash" | "task" | "eval";
+/**
+ * Kind of work a managed job runs; drives job-row badges and delivery labels.
+ *
+ * Registration validates the value against {@link ASYNC_JOB_KIND_PATTERN}: the
+ * built-ins are `bash`, `task`, and `eval`, and extensions register their own
+ * (e.g. `pwsh`). Every accepted kind is control-character free and bounded, so
+ * display paths may render it directly; values read back from persisted
+ * transcript details are still sanitized at the render site.
+ */
+export type AsyncJobType = string;
+
+/** Accepted job-kind shape: 1-64 lowercase ASCII letters, digits, `.`, `_`, `:`, `-`. */
+const ASYNC_JOB_KIND_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,63}$/;
+const ASYNC_JOB_KIND_ERROR =
+	"Background job kind must be 1-64 lowercase ASCII letters, digits, dots, underscores, colons, or hyphens.";
+
+/** Throw unless `kind` is a safe, bounded job-kind identifier. */
+function assertValidAsyncJobKind(kind: string): void {
+	if (!ASYNC_JOB_KIND_PATTERN.test(kind)) throw new Error(ASYNC_JOB_KIND_ERROR);
+}
 
 /** Settled job-body payload: delivery text plus its parsed structured output. */
 export interface AsyncJobRunResult {
@@ -133,6 +151,60 @@ export interface AsyncJob {
 	 * outlive the job row it was kept alive for.
 	 */
 	retainedArtifactsCleanup?: () => Promise<void>;
+}
+
+/** What a job body receives: its id, cooperative cancellation, and progress reporting. */
+export interface AsyncJobRunContext {
+	jobId: string;
+	signal: AbortSignal;
+	reportProgress: (text: string, details?: AsyncJobDetails) => Promise<void>;
+	/** Clear the queued flag once the job actually starts executing. */
+	markRunning: () => void;
+}
+
+/**
+ * Register options a scoped caller may set. Ownership, identity, and the
+ * core-only fields are dropped: a plugin cannot claim another agent, mint a
+ * display-unsafe job id, or take over foreground/artifact bookkeeping.
+ */
+export type ScopedAsyncJobRegisterOptions = Omit<
+	AsyncJobRegisterOptions,
+	"ownerId" | "agentId" | "id" | "foreground" | "retainedArtifactsCleanup"
+>;
+
+/**
+ * Owner-bound background-job surface exposed to extensions and custom tools.
+ * Registrations are pinned to one owner, so hub visibility, cancellation, and
+ * completion delivery stay isolated to that agent — the same lifecycle a
+ * built-in `bash`/`task`/`eval` job rides.
+ */
+export interface ScopedAsyncJobs {
+	/**
+	 * Register a background job owned by the scoped agent. `kind` is a display
+	 * identifier validated against {@link ASYNC_JOB_KIND_PATTERN}; it selects no
+	 * executor and grants no built-in behavior.
+	 */
+	register(
+		kind: string,
+		label: string,
+		run: (ctx: AsyncJobRunContext) => Promise<string>,
+		options?: ScopedAsyncJobRegisterOptions,
+	): string;
+}
+
+/** Build manager options from a scoped call, allowlisting every field. */
+function scopedRegisterOptions(
+	ownerId: string,
+	options: ScopedAsyncJobRegisterOptions | undefined,
+): AsyncJobRegisterOptions {
+	// Built by allowlist, never by spread: a JavaScript caller passing an
+	// unexpected `agentId`/`id` property must not reach the manager.
+	return {
+		ownerId,
+		...(options?.onProgress ? { onProgress: options.onProgress } : {}),
+		...(options?.process ? { process: options.process } : {}),
+		...(options?.queued === true ? { queued: true } : {}),
+	};
 }
 
 /**
@@ -336,20 +408,15 @@ export class AsyncJobManager {
 	}
 
 	register(
-		type: AsyncJobType,
+		kind: AsyncJobType,
 		label: string,
-		run: (ctx: {
-			jobId: string;
-			signal: AbortSignal;
-			reportProgress: (text: string, details?: AsyncJobDetails) => Promise<void>;
-			/** Clear the queued flag once the job actually starts executing. */
-			markRunning: () => void;
-		}) => Promise<string | AsyncJobRunResult>,
+		run: (ctx: AsyncJobRunContext) => Promise<string | AsyncJobRunResult>,
 		options?: AsyncJobRegisterOptions,
 	): string {
 		if (this.#disposed) {
 			throw new Error("Async job manager is disposed");
 		}
+		assertValidAsyncJobKind(kind);
 		// Queued jobs hold no execution slot yet — only count jobs that are
 		// actually running so a large parked batch cannot starve registration.
 		let activeCount = 0;
@@ -373,7 +440,7 @@ export class AsyncJobManager {
 
 		const job: AsyncJob = {
 			id,
-			type,
+			type: kind,
 			status: "running",
 			startTime,
 			label,
@@ -1259,4 +1326,17 @@ export class AsyncJobManager {
 		const jitterMs = Math.floor(Math.random() * DELIVERY_RETRY_JITTER_MS);
 		return Math.min(DELIVERY_RETRY_MAX_MS, backoffMs + jitterMs);
 	}
+}
+
+/**
+ * Bind an async job manager to one immutable owner identity and expose the
+ * registration-only surface plugins use. Ownership, ids, and core-only options
+ * are pinned by {@link scopedRegisterOptions}, so a plugin cannot impersonate
+ * another agent or claim TaskTool/subagent behavior.
+ */
+export function createScopedAsyncJobs(manager: AsyncJobManager, ownerId: string): ScopedAsyncJobs {
+	return {
+		register: (kind, label, run, options) =>
+			manager.register(kind, label, run, scopedRegisterOptions(ownerId, options)),
+	};
 }

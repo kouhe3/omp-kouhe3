@@ -35,6 +35,7 @@ import type { LocalProtocolOptions } from "../../internal-urls/local-protocol";
 import type { MemoryRuntimeContext } from "../../memory-backend";
 import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
 import type { AsyncJobSnapshot } from "../../session/agent-session";
+import type { ScopedAsyncJobs } from "../../async";
 import { MAIN_AGENT_ID } from "../../registry/agent-registry";
 import type { SessionManager } from "../../session/session-manager";
 import { addFileDeleteFallback, addFileWriteFallback } from "../../tools/file-write-fallback";
@@ -720,6 +721,8 @@ export class ExtensionRunner {
 		getAsyncJobSnapshot?: () => AsyncJobSnapshot | null,
 		/** Identity of the agent this runner's session runs; defaults to the top-level agent. */
 		private readonly agent: ExtensionAgentIdentity = TOP_LEVEL_AGENT,
+		/** Owner-scoped background jobs exposed to extensions and custom tools. */
+		private readonly asyncJobs?: ScopedAsyncJobs,
 	) {
 		this.#uiContext = noOpUIContext;
 		this.#getMemoryFn = getMemory;
@@ -1365,6 +1368,7 @@ export class ExtensionRunner {
 		const getModel = model ? () => model : this.#getModel;
 		const runEphemeralTurn = this.#runEphemeralTurnFn;
 		return {
+			asyncJobs: this.asyncJobs,
 			ui: this.#uiContext,
 			mode: this.#mode,
 			getContextUsage: () => this.#getContextUsageFn(),

@@ -46,7 +46,7 @@ import {
 	formatAdvisorContextPrompt,
 	formatAdvisorMemoryPrompt,
 } from "./advisor";
-import { AsyncJobManager } from "./async";
+import { AsyncJobManager, createScopedAsyncJobs } from "./async";
 import { AutoLearnController, buildAutoLearnInstructions } from "./autolearn/controller";
 import { createAutoresearchExtension } from "./autoresearch";
 import { loadCapability, reset as resetCapabilities } from "./capability";
@@ -1323,6 +1323,7 @@ function createCustomToolContext(ctx: ExtensionContext): CustomToolContext {
 	return {
 		sessionManager: ctx.sessionManager,
 		modelRegistry: ctx.modelRegistry,
+		asyncJobs: ctx.asyncJobs,
 		model: ctx.model,
 		isIdle: ctx.isIdle,
 		hasQueuedMessages: ctx.hasPendingMessages,
@@ -3281,6 +3282,12 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// (The builtin autoresearch extension is unconditionally loaded above, so this scenario
 		// is unreachable; unconditional runner construction keeps that invariant explicit and
 		// prevents future optional extensions from silently re-opening the hole.)
+		// Registration-only background jobs for extensions and custom tools:
+		// hub jobs/wait/cancel and completion delivery ride the manager the
+		// session already owns, so kinds stay open without a second scheduler.
+		const scopedAsyncJobs = scopedAsyncJobManager
+			? createScopedAsyncJobs(scopedAsyncJobManager, resolvedAgentId)
+			: undefined;
 		const extensionRunner: ExtensionRunner = new ExtensionRunner(
 			extensionsResult.extensions,
 			extensionsResult.runtime,
@@ -3298,6 +3305,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				depth: taskDepth,
 				...(options.parentAgentId ? { parentId: options.parentAgentId } : {}),
 			}),
+			scopedAsyncJobs,
 		);
 
 		credentialDisabledTarget = extensionRunner;
@@ -3309,6 +3317,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const getSessionContext = () => ({
 			sessionManager,
 			modelRegistry,
+			asyncJobs: scopedAsyncJobs,
 			model: agent.state.model,
 			isIdle: () => !session.isStreaming,
 			hasQueuedMessages: () => session.queuedMessageCount > 0,
