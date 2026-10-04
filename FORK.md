@@ -6,7 +6,8 @@
 - 本地检出：`C:/tmp/omp-kouhe3`
 - 上游：`origin` = `https://github.com/can1357/oh-my-pi.git`
 - 上游镜像（提 PR 用）：`fork` = `https://github.com/kouhe3/oh-my-pi.git`
-- 承载 `kouhe3-patch` 的独立仓库：`https://github.com/kouhe3/omp-kouhe3.git`（push 目标，仅放 fork 提交）
+- 承载 `kouhe3-patch` 的独立仓库：`https://github.com/kouhe3/omp-kouhe3.git`（本地 remote 名 `kouhe3`，默认分支即 `kouhe3-patch`，仅放 fork 提交）
+- 基准 tag `v18.6.0` 已随分支推到该仓库：fresh clone 可直接 `git rebase v18.6.0`
 - 承载全部 fork 提交的分支：`kouhe3-patch`
 - **基准 tag：`v18.6.0`**（`git log -1 v18.6.0` = `89d2610993 chore: bump version to 18.6.0`，与分支 merge-base 完全一致）。同步只跟 tag 走，不跟 `main`。
 
@@ -145,6 +146,7 @@ bun test          → 85 pass / 0 fail
 基准是 **release tag**，不是 `main`：
 
 ```bash
+git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
 git rebase v18.6.0            # 换成当前基准 tag；分支 8 个提交逐个重放
 bun install
@@ -155,6 +157,8 @@ git diff --check
 
 - 当前基准 `v18.6.0` = `89d2610993`，与分支 merge-base 一致；换基准时同步改基准 tag 与本节说明。
 - 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。
+- **首次推送到空仓库前先解 shallow**：`git rev-parse --is-shallow-repository` 为 `true` 时直接 push 会得到 `remote unpack failed: index-pack failed` 或 `shallow update not allowed`——shallow 边界之外的祖先对象必须由本地提供。本检出曾只差 20 个提交，`git fetch --unshallow origin` 5 秒解决。
+- 首次推送整仓约 650 MB / 2 分 45 秒；上游历史里带着若干 `.turbo/cache/*.tar.zst`（52–54 MB），GitHub 会给出 >50 MB 的 GH001 警告（非 LFS，可忽略）。
 - rebase 后**必须人工核对 `packages/*/CHANGELOG.md`**：按尾部上下文匹配会把「在 `[Unreleased]` 下插入条目」的 hunk 无冲突地插到已发布段之后（本仓已发生过两次）。可用 `bun scripts/fix-changelogs.ts --check` 程序化校验。
 - `gen:glyphs` 只识别原始 PUA 字符与 `\u{...}`/`\uXXXX` 转义，**不识别十六进制字面量**；码点常量与 `glyph-bundle.json` 必须成对同步，否则 handshake 报 `registered codepoint not served from glossary`。
 
