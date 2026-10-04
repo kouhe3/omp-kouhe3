@@ -1034,6 +1034,42 @@ describe("AsyncJobManager scoped plugin jobs", () => {
 		expect(manager.getJob(jobId)?.status).toBe("cancelled");
 	});
 
+	test("scoped cancel is owner-pinned and suppresses the cancelled job's delivery", async () => {
+		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
+		const jobs = createScopedAsyncJobs(manager, "Main");
+		const other = createScopedAsyncJobs(manager, "Sub");
+		const delivered: Array<{ jobId: string; text: string }> = [];
+		manager.registerDeliverySink("Main", (jobId, text) => {
+			delivered.push({ jobId, text });
+		});
+		const release = Promise.withResolvers<void>();
+		const jobId = jobs.register("pwsh", "pwsh: long build", async ({ signal }) => {
+			const aborted = Promise.withResolvers<void>();
+			signal.addEventListener("abort", () => aborted.resolve(), { once: true });
+			await Promise.race([release.promise, aborted.promise]);
+			return "build done";
+		});
+
+		// Only the registering scope can cancel, and only while the job runs.
+		expect(other.cancel(jobId)).toBe(false);
+		expect(jobs.cancel("unknown-job")).toBe(false);
+		expect(jobs.cancel(jobId)).toBe(true);
+		expect(jobs.cancel(jobId)).toBe(false);
+
+		release.resolve();
+		await manager.waitForAll();
+		expect(manager.getJob(jobId)?.status).toBe("cancelled");
+		await manager.drainDeliveries({ timeoutMs: 1_000 });
+		expect(delivered).toEqual([]);
+
+		// Control: an uncancelled job from the same scope still delivers, so the
+		// empty `delivered` above is suppression rather than a mis-wired sink.
+		const quickId = jobs.register("pwsh", "pwsh: quick", async () => "quick done");
+		await manager.waitForAll();
+		await manager.drainDeliveries({ timeoutMs: 2_000 });
+		expect(delivered).toEqual([{ jobId: quickId, text: "quick done" }]);
+	});
+
 	test("rejects unsafe plugin job kinds before creating a job", () => {
 		const manager = new AsyncJobManager({ onJobComplete: async () => {} });
 		const jobs = createScopedAsyncJobs(manager, "Main");

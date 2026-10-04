@@ -190,6 +190,13 @@ export interface ScopedAsyncJobs {
 		run: (ctx: AsyncJobRunContext) => Promise<string>,
 		options?: ScopedAsyncJobRegisterOptions,
 	): string;
+	/**
+	 * Cancel a job this scope registered. Returns false when the id is unknown,
+	 * already settled, or owned by another agent — a plugin can never cancel
+	 * another agent's work. A cancelled job settles as `cancelled` and its
+	 * completion is not delivered: the canceller already has the outcome.
+	 */
+	cancel(jobId: string): boolean;
 }
 
 /** Build manager options from a scoped call, allowlisting every field. */
@@ -1338,5 +1345,6 @@ export function createScopedAsyncJobs(manager: AsyncJobManager, ownerId: string)
 	return {
 		register: (kind, label, run, options) =>
 			manager.register(kind, label, run, scopedRegisterOptions(ownerId, options)),
+		cancel: jobId => manager.cancel(jobId, { ownerId }),
 	};
 }
