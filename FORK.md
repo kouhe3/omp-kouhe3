@@ -11,7 +11,7 @@
 - 承载全部 fork 提交的分支：`kouhe3-patch`
 - **基准 tag：`v18.6.1`**（`git log -1 v18.6.1` = `2a2c6dcbbb chore: bump version to 18.6.1`，与分支 merge-base 完全一致；同日稍后发布的 `v18.6.2` 未采用）。同步只跟 tag 走，不跟 `main`。
 
-> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 12 个提交（8 个功能/修复 + 4 个文档）、36 个文件（+1391/−85）。`main` 携带未解决错误，故基准始终取 release tag。
+> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 14 个提交（9 个功能/修复 + 5 个文档）、37 个文件（+1631/−86）。`main` 携带未解决错误，故基准始终取 release tag。
 
 ---
 
@@ -22,6 +22,7 @@
 1. **扩展的后台任务面**：扩展（如 `omp-pwsh7`）把后台任务注册进宿主，与内置 `bash`/`task`/`eval` 共用 Hub jobs 表、`wait`、取消与完成投递。对应上游未合并 PR [#6909](https://github.com/can1357/oh-my-pi/pull/6909)（by [@incloon](https://github.com/incloon)）+ 该 PR review 指出的三处问题修复。
 2. **外部 peer**：跨机器/跨宿主的 agent 作为只读 roster 条目出现在 Agent Hub，主会话可通过扩展 API 发布。
 3. **两个 fork-only 修复**：上游明确不合并或尚未合并的 [#12570](https://github.com/can1357/oh-my-pi/pull/12570)（品牌图标码点）与 [#12486](https://github.com/can1357/oh-my-pi/pull/12486)（PTY dispose 后迟到数据导致进程级崩溃）。
+4. **转录端点（transcript-only refs）**：外部渠道扩展（IRC/QQ/Email 桥）注册的 peer 声明 `transcriptOnly` —— 它只有投递面与一份保存的转录，没有可聚焦的实时会话。Hub 里 `⏎` 打开该转录（只读），focus 轮转与 `r`/`x` 跳过它，`history://<peer>` 读转录文件而不是空 stub；`agent://<peer>` 出站投递不受影响。对应上游 issue [#13843](https://github.com/can1357/oh-my-pi/issues/13843)（仍 OPEN，提案即本改动）。
 
 **刻意不做**：不重命名/不新增 package 发布面、不动上游 CI 契约、不改上游未涉及的行为。
 
@@ -41,14 +42,16 @@
 | 6 | `c0d5053348` | fix(registry) | fork-only | 外部 peer 只在 Hub 出现：agent 可见 roster、focus 轮转、collab guest、`history://`、IRC 群发一律排除（新增 `isLocalAgentRef`）；修掉 sdk 里 `hasSession` 未置位导致 `ctx.externalAgents` 生产不可达的错误门；`upsert` 只刷新本 scope 宣告过的 id。 |
 | 7 | `7f9c0ca49a` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
 | 8 | `f791e34373` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
+| 9 | `09dcabf9ab` | feat(coding-agent,tui) | 修复 #13843 | `AgentRef`/`RegisterInput` 新增 `transcriptOnly?: boolean`（`register()` 逐字段拷贝，`AgentRecordLike` 镜像）：声明「有转录、无可聚焦实时会话」。Hub `#activateAgent` 对这类行直接 `openChat`，`r`/`x` 拒绝 revive/kill（否则 `release` 会把渠道端点 tombstone）；viewer `#sendable` 为 false；`pickRecentFocusableAgentId` 跳过；`history://<id>` 在取 `ref.session` 前排除它，改读 `sessionFile`，无文件时报 `no transcript` 而非渲染空 stub。 |
 
-改动文件面（36 个文件，+1391/−85，含 `FORK.md` 与两处 `CHANGELOG.md`）：
+改动文件面（37 个文件，+1631/−86，含 `FORK.md` 与两处 `CHANGELOG.md`）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
 - `packages/coding-agent/src/registry/{agent-registry,external-agents}.ts`、`internal-urls/{history-protocol,registry-helpers}.ts`、`irc/bus.ts`、`collab/host.ts`、`modes/{agent-hub-runtime,controllers/session-focus-controller}.ts`、`task/executor.ts` — 外部 peer 的 roster/排除面
+- `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 9 行）
 - `packages/tui/src/overlays/{agent-hub,agent-hub-types,agent-transcript-viewer}.ts`、`chat/transcript-render-helpers.ts`、`tools/wait.ts`、`theme/*`、`glyph-protocol.ts` — Hub 渲染、job 徽标、品牌图标
 - `.omp/tools/tui.ts` — 会话停止后的 PTY 竞态
-- 测试：`packages/coding-agent/test/{async-job-manager,extension-context-external-agents,sdk-agent-surfaces-wiring,agent-hub-activate,session-focus-controller}.test.ts`、`test/registry/{external-peer-ref,scoped-external-agents}.test.ts`、`test/internal-urls/history-protocol.test.ts`、`test/collab/host-registry.test.ts`、`packages/tui/test/theme-nerd-symbols.test.ts`
+- 测试：`packages/coding-agent/test/{async-job-manager,extension-context-external-agents,sdk-agent-surfaces-wiring,agent-hub-activate,agent-hub-advisor-scroll,session-focus-controller}.test.ts`、`test/registry/{external-peer-ref,scoped-external-agents}.test.ts`、`test/internal-urls/history-protocol.test.ts`、`test/collab/host-registry.test.ts`、`packages/tui/test/theme-nerd-symbols.test.ts`
 
 ---
 
@@ -150,7 +153,7 @@ bun test          → 85 pass / 0 fail
 ```bash
 git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
-git rebase v18.6.1            # 换成当前基准 tag；分支 12 个提交逐个重放
+git rebase v18.6.1            # 换成当前基准 tag；分支 14 个提交逐个重放
 bun install
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
 bun run gen:glyphs            # 第 8 笔改过码点；重跑应零 diff
@@ -159,6 +162,8 @@ git diff --check
 
 - 当前基准 `v18.6.1` = `2a2c6dcbbb`，与分支 merge-base 一致；换基准时同步改基准 tag 与本节说明。
 - 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。
+- **全局 `omp` 依赖 `~/.bun/install/global/node_modules` 这一层**：`@oh-my-pi/pi-coding-agent` 与 `@oh-my-pi/pi-tui` 都要 link 到 fork（`cd packages/<pkg> && bun link`）；只 link 前者时 fork 的 coding-agent 会配上一份发行版 tui，Hub 等 tui 侧改动不生效。另外 `packages/coding-agent/dist/cli.js` 是 `bun run gen:bundle` 的产物（`bun pm pack` 的 `prepack` 会顺带重建），改完源码要重跑一次。
+- **验证 fork 行为别直接跑扩展自带的 e2e**：`Bun.spawn(["omp"])` 会先命中 `<ext>/node_modules/.bin/omp`，也就是扩展自己钉住的发行版（`tencent_qq_bot` 是 18.4.3），于是永远走「宿主不支持」分支。用 `QQBOT_E2E_OMP=<fork>/packages/coding-agent/src/cli.ts` 覆盖宿主，才是 fork 的真实行为。
 - **首次推送到空仓库前先解 shallow**：`git rev-parse --is-shallow-repository` 为 `true` 时直接 push 会得到 `remote unpack failed: index-pack failed` 或 `shallow update not allowed`——shallow 边界之外的祖先对象必须由本地提供。本检出曾只差 20 个提交，`git fetch --unshallow origin` 5 秒解决。
 - 首次推送整仓约 650 MB / 2 分 45 秒；上游历史里带着若干 `.turbo/cache/*.tar.zst`（52–54 MB），GitHub 会给出 >50 MB 的 GH001 警告（非 LFS，可忽略）。
 - rebase 后**核对 `packages/*/CHANGELOG.md`**：按尾部上下文匹配会把「在 `[Unreleased]` 下插入条目」的 hunk 无冲突地插到已发布段之后（本仓发生过两次）。2026-10-05 rebase 到 v18.6.1 时已逐笔重写 fork 的 changelog hunk，使其锚定文件顶部（紧随 `## [Unreleased]`），后续 rebase 应能正确落位；仍用 `bun scripts/fix-changelogs.ts --check` 校验结构，并人工确认条目在 `[Unreleased]` 内。
@@ -184,6 +189,12 @@ bun test packages/coding-agent/test/registry/external-peer-ref.test.ts \
 # TUI 侧
 bun test packages/tui/test/theme-nerd-symbols.test.ts
 
+# 转录端点（Hub ⏎ 打开转录、focus 轮转跳过、history:// 读文件）
+bun test packages/coding-agent/test/agent-hub-activate.test.ts \
+         packages/coding-agent/test/agent-hub-advisor-scroll.test.ts \
+         packages/coding-agent/test/session-focus-controller.test.ts \
+         packages/coding-agent/test/internal-urls/history-protocol.test.ts
+
 # 图标 bundle 与源码一致性
 bun run gen:glyphs && git diff --exit-code packages/tui/src/theme/glyph-bundle.json
 ```
@@ -208,6 +219,7 @@ cd C:/tmp/omp-kouhe3/packages/coding-agent && bun link
 - 后台任务面 / 外部 peer → `git revert 75d11d2b47 7ddc9e2819 7c4cd68353 efe7b33eea 379788d1af c0d5053348`
 - PTY 竞态（#12486）→ `git revert 7f9c0ca49a`
 - 品牌图标（#12570）→ `git revert f791e34373`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
+- 转录端点 / transcript-only refs（#13843）→ `git revert 09dcabf9ab`
 
 ---
 
