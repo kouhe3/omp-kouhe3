@@ -11,7 +11,7 @@
 - 承载全部 fork 提交的分支：`kouhe3-patch`
 - **基准 tag：`v18.6.1`**（`git log -1 v18.6.1` = `2a2c6dcbbb chore: bump version to 18.6.1`，与分支 merge-base 完全一致；同日稍后发布的 `v18.6.2` 未采用）。同步只跟 tag 走，不跟 `main`。
 
-> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 15 个提交、27 个文件（+838/−62）。净生效的是下表 6 笔 + 5 笔文档；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。`main` 携带未解决错误，故基准始终取 release tag。
+> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 16 个提交、27 个文件（+841/−62）。净生效的是下表 6 笔 + 6 笔文档；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。基准只取**已发版**的 tag（§5），`main` 不跟。
 
 ---
 
@@ -44,7 +44,7 @@
 
 > **已撤销**：曾有一组「外部 peer」实现（`AgentKind = "external"` + `ctx.externalAgents` + 各处排除面，提交 `efe7b33eea`/`379788d1af`/`c0d5053348`），2026-10-05 整体 revert（提交 `revert(registry,tui): 撤掉外部 peer`）。原因：那种 peer 只读、**不可投递**（`irc/bus.ts` 直接拒绝）、且被 agent roster / completions / `history://` / collab guest 全部排除 —— 与「IRC 上对等通话」所需的面完全相反，留着只会被误用。要跨机 roster 可见性时可以再评估，届时应给它投递面而不是复用只读形状。
 
-改动文件面（27 个文件，+838/−62，含 `FORK.md` 与两处 `CHANGELOG.md`）：
+改动文件面（27 个文件，+841/−62，含 `FORK.md` 与两处 `CHANGELOG.md`）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
 - `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 6 行）
@@ -152,14 +152,17 @@ bun test          → 85 pass / 0 fail
 ```bash
 git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
-git rebase v18.6.1            # 换成当前基准 tag；分支 15 个提交逐个重放
+# 基准必须已发版：tag 存在 ≠ 发布成功（发布失败/中断的 tag 不算基准）
+curl -s https://registry.npmjs.org/@oh-my-pi/pi-coding-agent | grep -q "\"18.6.1\":" && echo released
+git rebase v18.6.1            # 换成当前基准 tag；分支 16 个提交逐个重放
 bun install
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
-bun run gen:glyphs            # 第 8 笔改过码点；重跑应零 diff
+bun run gen:glyphs            # 图标那一笔改过码点；重跑应零 diff
 git diff --check
 ```
 
-- 当前基准 `v18.6.1` = `2a2c6dcbbb`，与分支 merge-base 一致；换基准时同步改基准 tag 与本节说明。
+- **基准只取「已发版」的 tag**：上游 `git tag` 只代表 CI 被触发，发布失败/中断的 tag 没有对应版本，取它等于把 `main` 上未验证的问题引进来。采用前确认该版本真的发布过（npm registry 上有该版本，或 `bun install -g @oh-my-pi/pi-coding-agent@<ver>` 能装到）。反例：`v18.6.2` 有 tag，但 npm 上没有 18.6.2（`latest` 仍是 18.6.1），故**不作基准**。
+- 当前基准 `v18.6.1` = `2a2c6dcbbb`，与分支 merge-base 一致，且 npm `latest` = 18.6.1（已发版）；换基准时同步改基准 tag 与本节说明。
 - 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。
 - **全局 `omp` 依赖 `~/.bun/install/global/node_modules` 这一层**：`@oh-my-pi/pi-coding-agent` 与 `@oh-my-pi/pi-tui` 都要 link 到 fork（`cd packages/<pkg> && bun link`）；只 link 前者时 fork 的 coding-agent 会配上一份发行版 tui，Hub 等 tui 侧改动不生效。另外 `packages/coding-agent/dist/cli.js` 是 `bun run gen:bundle` 的产物（`bun pm pack` 的 `prepack` 会顺带重建），改完源码要重跑一次。
 - **验证 fork 行为别直接跑扩展自带的 e2e**：`Bun.spawn(["omp"])` 会先命中 `<ext>/node_modules/.bin/omp`，也就是扩展自己钉住的发行版（`tencent_qq_bot` 是 18.4.3），于是永远走「宿主不支持」分支。用 `QQBOT_E2E_OMP=<fork>/packages/coding-agent/src/cli.ts` 覆盖宿主，才是 fork 的真实行为。
