@@ -162,7 +162,6 @@ import mcpXdevGuidanceTemplate from "./prompts/system/mcp-xdev-guidance.md" with
 import lateDiagnosticTemplate from "./prompts/tools/lsp-late-diagnostic.md" with { type: "text" };
 import { AgentLifecycleManager } from "./registry/agent-lifecycle";
 import { type AgentKind, type AgentRef, AgentRegistry, MAIN_AGENT_ID } from "./registry/agent-registry";
-import { createScopedExternalAgents } from "./registry/external-agents";
 import {
 	buildSecretObfuscator,
 	deobfuscateSessionContext,
@@ -1325,7 +1324,6 @@ function createCustomToolContext(ctx: ExtensionContext): CustomToolContext {
 		sessionManager: ctx.sessionManager,
 		modelRegistry: ctx.modelRegistry,
 		asyncJobs: ctx.asyncJobs,
-		externalAgents: ctx.externalAgents,
 		model: ctx.model,
 		isIdle: ctx.isIdle,
 		hasQueuedMessages: ctx.hasPendingMessages,
@@ -3290,17 +3288,6 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const scopedAsyncJobs = scopedAsyncJobManager
 			? createScopedAsyncJobs(scopedAsyncJobManager, resolvedAgentId)
 			: undefined;
-		// Peers are a top-level notion: only a main session publishes roster rows
-		// for agents running outside this process, and its teardown drops them so
-		// the shared registry never keeps a dead session's ghosts. `hasSession` is
-		// still false here (the session is constructed further down, and this
-		// block only runs on the path that builds it), so the gate is
-		// subagent-ness alone — reading `hasSession` here would disable the
-		// surface for every session.
-		const scopedExternalAgents = isSubagentSession
-			? undefined
-			: createScopedExternalAgents(agentRegistry, resolvedAgentId);
-		if (scopedExternalAgents) disposeCallbacks.add(() => scopedExternalAgents.dispose());
 		const extensionRunner: ExtensionRunner = new ExtensionRunner(
 			extensionsResult.extensions,
 			extensionsResult.runtime,
@@ -3319,7 +3306,6 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				...(options.parentAgentId ? { parentId: options.parentAgentId } : {}),
 			}),
 			scopedAsyncJobs,
-			scopedExternalAgents,
 		);
 
 		credentialDisabledTarget = extensionRunner;
@@ -3332,7 +3318,6 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			sessionManager,
 			modelRegistry,
 			asyncJobs: scopedAsyncJobs,
-			externalAgents: scopedExternalAgents,
 			model: agent.state.model,
 			isIdle: () => !session.isStreaming,
 			hasQueuedMessages: () => session.queuedMessageCount > 0,

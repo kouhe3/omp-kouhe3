@@ -315,7 +315,6 @@
 ### Added
 
 - Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
-- The agent registry accepts `external` peers, and main sessions expose `ctx.externalAgents` to publish them: session-less roster entries carrying peer-reported status and activity, shown in the Agent Hub only (agent-facing rosters, focus targets, peer messaging, and collab guests skip them), read-only there (kill/revive say to act on the peer's own host), with each publisher able to drive only the rows it announced.
 - A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.6.1] - 2026-10-04

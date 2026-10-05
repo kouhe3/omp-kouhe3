@@ -118,15 +118,6 @@ export class IrcBus {
 				error: `Agent "${message.to}" is a read-only advisor transcript and cannot be messaged.`,
 			};
 		}
-		// External peers are roster-only rows: the session lives on the peer's own
-		// host, so nothing in this process can inject a message into it.
-		if (ref.kind === "external") {
-			return {
-				to: message.to,
-				outcome: "failed",
-				error: `Agent "${message.to}" runs on another host and cannot be messaged from this session.`,
-			};
-		}
 
 		// A `parked` recipient always needs the lifecycle to revive it — this is
 		// read from *this* bus's registry, so it holds for any registry. The

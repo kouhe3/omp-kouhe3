@@ -11,7 +11,7 @@
 - 承载全部 fork 提交的分支：`kouhe3-patch`
 - **基准 tag：`v18.6.1`**（`git log -1 v18.6.1` = `2a2c6dcbbb chore: bump version to 18.6.1`，与分支 merge-base 完全一致；同日稍后发布的 `v18.6.2` 未采用）。同步只跟 tag 走，不跟 `main`。
 
-> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 14 个提交（9 个功能/修复 + 5 个文档）、37 个文件（+1631/−86）。`main` 携带未解决错误，故基准始终取 release tag。
+> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 15 个提交、27 个文件（+838/−62）。净生效的是下表 6 笔 + 5 笔文档；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。`main` 携带未解决错误，故基准始终取 release tag。
 
 ---
 
@@ -20,9 +20,10 @@
 这是一个**为了跑起来而非为了合并**的 patch 分支，解决三类上游尚未提供的能力：
 
 1. **扩展的后台任务面**：扩展（如 `omp-pwsh7`）把后台任务注册进宿主，与内置 `bash`/`task`/`eval` 共用 Hub jobs 表、`wait`、取消与完成投递。对应上游未合并 PR [#6909](https://github.com/can1357/oh-my-pi/pull/6909)（by [@incloon](https://github.com/incloon)）+ 该 PR review 指出的三处问题修复。
-2. **外部 peer**：跨机器/跨宿主的 agent 作为只读 roster 条目出现在 Agent Hub，主会话可通过扩展 API 发布。
-3. **两个 fork-only 修复**：上游明确不合并或尚未合并的 [#12570](https://github.com/can1357/oh-my-pi/pull/12570)（品牌图标码点）与 [#12486](https://github.com/can1357/oh-my-pi/pull/12486)（PTY dispose 后迟到数据导致进程级崩溃）。
-4. **转录端点（transcript-only refs）**：外部渠道扩展（IRC/QQ/Email 桥）注册的 peer 声明 `transcriptOnly` —— 它只有投递面与一份保存的转录，没有可聚焦的实时会话。Hub 里 `⏎` 打开该转录（只读），focus 轮转与 `r`/`x` 跳过它，`history://<peer>` 读转录文件而不是空 stub；`agent://<peer>` 出站投递不受影响。对应上游 issue [#13843](https://github.com/can1357/oh-my-pi/issues/13843)（仍 OPEN，提案即本改动）。
+2. **两个 fork-only 修复**：上游明确不合并或尚未合并的 [#12570](https://github.com/can1357/oh-my-pi/pull/12570)（品牌图标码点）与 [#12486](https://github.com/can1357/oh-my-pi/pull/12486)（PTY dispose 后迟到数据导致进程级崩溃）。
+3. **转录端点（transcript-only refs）**：外部渠道扩展（IRC/QQ/Email 桥）注册的 peer 声明 `transcriptOnly` —— 它只有投递面与一份保存的转录，没有可聚焦的实时会话。Hub 里 `⏎` 打开该转录（只读），focus 轮转与 `r`/`x` 跳过它，`history://<peer>` 读转录文件而不是空 stub；`agent://<peer>` 出站投递不受影响。对应上游 issue [#13843](https://github.com/can1357/oh-my-pi/issues/13843)（仍 OPEN，提案即本改动）。
+
+> 对等通话（别人的 agent 与我们在 IRC 上互发消息）**不**靠新的 ref kind：走渠道端点模式（`sub` ref + 投递 stub + `transcriptOnly`），与 QQ 扩展同构。2026-10-05 撤掉的 `AgentKind = "external"`（§2 末尾说明）正是定位相反的那种设计。
 
 **刻意不做**：不重命名/不新增 package 发布面、不动上游 CI 契约、不改上游未涉及的行为。
 
@@ -37,21 +38,19 @@
 | 1 | `75d11d2b47` | feat(async) | 携带 #6909 | `AsyncJobType` 从闭集 `"bash"\|"task"\|"eval"` 泛化为受校验的 kind（1–64 位 `[a-z0-9._:-]`）；新增 owner-scoped 注册面 `ctx.asyncJobs.register(kind,label,run,options)`，`ownerId` 钉死、核心字段 allowlist 构造；接进 `ExtensionContext`/`CustomToolContext`/`ExtensionRunner`/`sdk`；TUI `JobSnapshot.type` 放开为 `string`，`async-result` 徽标对 kind/id 做 `replaceTabs` + 截断。修掉 #6909 review 三处：kind 渲染未净化、自定义 job id 未校验、`agentId` 运行时可注入。 |
 | 2 | `7ddc9e2819` | feat(async) | fork-only | `ScopedAsyncJobs.cancel(jobId)`：取消必须走宿主，才会落定为 `cancelled` 并抑制完成投递（扩展自行 abort 会被记成 failed 并把错误当结果投递给模型）。 |
 | 3 | `7c4cd68353` | fix(async) | fork-only | `cancel` 从 owner 级收紧为 **scope 级**：同 owner 的内置 `bash`/`task`/`eval` 与同会话其他扩展的 job 不可被本 scope 取消。 |
-| 4 | `efe7b33eea` | feat(hub) | fork-only | registry 新增 `AgentKind = "external"`；Hub 中外部 peer 为只读条目（`isRunning` 恒 false，不带 `session`/`sessionFile`）。 |
-| 5 | `379788d1af` | feat(registry) | fork-only | 主会话扩展上下文新增 `ctx.externalAgents`（`upsert`/`setStatus`/`setActivity`/`remove`/`dispose`），发布的每行钉死 `kind=external` + `session=null`，只能驱动自己发布的行。 |
-| 6 | `c0d5053348` | fix(registry) | fork-only | 外部 peer 只在 Hub 出现：agent 可见 roster、focus 轮转、collab guest、`history://`、IRC 群发一律排除（新增 `isLocalAgentRef`）；修掉 sdk 里 `hasSession` 未置位导致 `ctx.externalAgents` 生产不可达的错误门；`upsert` 只刷新本 scope 宣告过的 id。 |
-| 7 | `7f9c0ca49a` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
-| 8 | `f791e34373` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
-| 9 | `09dcabf9ab` | feat(coding-agent,tui) | 修复 #13843 | `AgentRef`/`RegisterInput` 新增 `transcriptOnly?: boolean`（`register()` 逐字段拷贝，`AgentRecordLike` 镜像）：声明「有转录、无可聚焦实时会话」。Hub `#activateAgent` 对这类行直接 `openChat`，`r`/`x` 拒绝 revive/kill（否则 `release` 会把渠道端点 tombstone）；viewer `#sendable` 为 false；`pickRecentFocusableAgentId` 跳过；`history://<id>` 在取 `ref.session` 前排除它，改读 `sessionFile`，无文件时报 `no transcript` 而非渲染空 stub。 |
+| 4 | `7f9c0ca49a` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
+| 5 | `f791e34373` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
+| 6 | `09dcabf9ab` | feat(coding-agent,tui) | 修复 #13843 | `AgentRef`/`RegisterInput` 新增 `transcriptOnly?: boolean`（`register()` 逐字段拷贝，`AgentRecordLike` 镜像）：声明「有转录、无可聚焦实时会话」。Hub `#activateAgent` 对这类行直接 `openChat`，`r`/`x` 拒绝 revive/kill（否则 `release` 会把渠道端点 tombstone）；viewer `#sendable` 为 false；`pickRecentFocusableAgentId` 跳过；`history://<id>` 在取 `ref.session` 前排除它，改读 `sessionFile`，无文件时报 `no transcript` 而非渲染空 stub。 |
 
-改动文件面（37 个文件，+1631/−86，含 `FORK.md` 与两处 `CHANGELOG.md`）：
+> **已撤销**：曾有一组「外部 peer」实现（`AgentKind = "external"` + `ctx.externalAgents` + 各处排除面，提交 `efe7b33eea`/`379788d1af`/`c0d5053348`），2026-10-05 整体 revert（提交 `revert(registry,tui): 撤掉外部 peer`）。原因：那种 peer 只读、**不可投递**（`irc/bus.ts` 直接拒绝）、且被 agent roster / completions / `history://` / collab guest 全部排除 —— 与「IRC 上对等通话」所需的面完全相反，留着只会被误用。要跨机 roster 可见性时可以再评估，届时应给它投递面而不是复用只读形状。
+
+改动文件面（27 个文件，+838/−62，含 `FORK.md` 与两处 `CHANGELOG.md`）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
-- `packages/coding-agent/src/registry/{agent-registry,external-agents}.ts`、`internal-urls/{history-protocol,registry-helpers}.ts`、`irc/bus.ts`、`collab/host.ts`、`modes/{agent-hub-runtime,controllers/session-focus-controller}.ts`、`task/executor.ts` — 外部 peer 的 roster/排除面
-- `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 9 行）
+- `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 6 行）
 - `packages/tui/src/overlays/{agent-hub,agent-hub-types,agent-transcript-viewer}.ts`、`chat/transcript-render-helpers.ts`、`tools/wait.ts`、`theme/*`、`glyph-protocol.ts` — Hub 渲染、job 徽标、品牌图标
 - `.omp/tools/tui.ts` — 会话停止后的 PTY 竞态
-- 测试：`packages/coding-agent/test/{async-job-manager,extension-context-external-agents,sdk-agent-surfaces-wiring,agent-hub-activate,agent-hub-advisor-scroll,session-focus-controller}.test.ts`、`test/registry/{external-peer-ref,scoped-external-agents}.test.ts`、`test/internal-urls/history-protocol.test.ts`、`test/collab/host-registry.test.ts`、`packages/tui/test/theme-nerd-symbols.test.ts`
+- 测试：`packages/coding-agent/test/{async-job-manager,sdk-agent-surfaces-wiring,agent-hub-activate,agent-hub-advisor-scroll,session-focus-controller}.test.ts`、`test/internal-urls/history-protocol.test.ts`、`test/collab/host-registry.test.ts`、`packages/tui/test/theme-nerd-symbols.test.ts`
 
 ---
 
@@ -120,7 +119,7 @@ bun install && bun run typecheck && bun test
 
 ```
 bun install       → ok（换包后增量安装 22 个 package；首次安装见 2026-10-04 记录的 160 个）
-bun run typecheck → 0 error    （含断言 ctx.asyncJobs / ctx.externalAgents 类型可用的探针文件）
+bun run typecheck → 0 error    （含断言 ctx.asyncJobs 类型可用的探针文件）
 bun test          → 85 pass / 0 fail
 ```
 
@@ -153,7 +152,7 @@ bun test          → 85 pass / 0 fail
 ```bash
 git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
-git rebase v18.6.1            # 换成当前基准 tag；分支 14 个提交逐个重放
+git rebase v18.6.1            # 换成当前基准 tag；分支 15 个提交逐个重放
 bun install
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
 bun run gen:glyphs            # 第 8 笔改过码点；重跑应零 diff
@@ -180,11 +179,8 @@ bun run check:ts
 # 后台任务面（含 scoped cancel 归属、投递抑制）
 bun test packages/coding-agent/test/async-job-manager.test.ts
 
-# 外部 peer（roster 语义、跨 scope 隔离、真实会话发布/清理）
-bun test packages/coding-agent/test/registry/external-peer-ref.test.ts \
-         packages/coding-agent/test/registry/scoped-external-agents.test.ts \
-         packages/coding-agent/test/extension-context-external-agents.test.ts \
-         packages/coding-agent/test/sdk-agent-surfaces-wiring.test.ts
+# 扩展面接线（真实 createAgentSession → ExtensionRunner → ctx）
+bun test packages/coding-agent/test/sdk-agent-surfaces-wiring.test.ts
 
 # TUI 侧
 bun test packages/tui/test/theme-nerd-symbols.test.ts
@@ -216,7 +212,7 @@ cd C:/tmp/omp-kouhe3/packages/coding-agent && bun link
 
 单个特性回退：
 
-- 后台任务面 / 外部 peer → `git revert 75d11d2b47 7ddc9e2819 7c4cd68353 efe7b33eea 379788d1af c0d5053348`
+- 后台任务面 → `git revert 75d11d2b47 7ddc9e2819 7c4cd68353`
 - PTY 竞态（#12486）→ `git revert 7f9c0ca49a`
 - 品牌图标（#12570）→ `git revert f791e34373`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
 - 转录端点 / transcript-only refs（#13843）→ `git revert 09dcabf9ab`
@@ -225,8 +221,8 @@ cd C:/tmp/omp-kouhe3/packages/coding-agent && bun link
 
 ## 8. 已知风险
 
-- **上游已明确拒绝 #12570**（维护者标记 intentional）。这 8 个提交里只有这一笔是「上游不要的」，其余是未合并或 fork-only 增量；把 `kouhe3-patch` 当 PR 分支推到上游会夹带它。
+- **上游已明确拒绝 #12570**（维护者标记 intentional）。fork 的功能/修复提交里只有这一笔是「上游不要的」，其余是未合并或 fork-only 增量；把 `kouhe3-patch` 当 PR 分支推到上游会夹带它。
 - **`catalog:` 协议耦合**：`packages/*/package.json` 的依赖全走 `catalog:`，只能在 monorepo 内解析。任何外部消费方式都必须先打包（§4）。
 - **基准是 tag**：`main` 目前含错误，不跟 `main`；换基准必须同步重打包（§5）。
-- **fork-only API 无文档面**：`ctx.asyncJobs` / `ctx.externalAgents` 不在上游 `docs/` 里，本文件是它们的唯一说明。
+- **fork-only API 无文档面**：`ctx.asyncJobs` 与 ref 上的 `transcriptOnly` 不在上游 `docs/` 里，本文件是它们的唯一说明。
 - **tarball 是 types-only**：§4.1/4.2 的产物只重指了 `types`，不能当运行时安装使用。

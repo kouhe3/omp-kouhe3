@@ -23,12 +23,7 @@ export type { AgentStatus, AgentMetricsSummary };
  *   attribution and Agent Hub observability, but never a peer — hidden from
  *   agent-facing rosters (`proc://`, `history://`) and not messageable/revivable.
  */
-/**
- * Who an agent is relative to this process. `external` is a peer running in
- * another process or on another device: it has no local session, so only its
- * status, activity, and (when the host provides one) transcript are available.
- */
-export type AgentKind = "main" | "sub" | "advisor" | "external";
+export type AgentKind = "main" | "sub" | "advisor";
 
 /**
  * Run lifecycle milestones, stamped as they happen and scoped to the CURRENT
@@ -91,16 +86,6 @@ export interface AgentRef {
 	history?: AgentHistorySummary;
 	/** Run lifecycle milestones (launch is {@link createdAt}). */
 	lifecycle?: AgentRunLifecycle;
-}
-
-/**
- * Whether a ref is a local agent: a `main`/`sub` ref with a session in this
- * process — the only refs agent-facing rosters and local control (messaging,
- * focus, revive, kill) may act on. Advisor transcripts are observability-only,
- * and `external` peers live on another host, so neither is addressable here.
- */
-export function isLocalAgentRef(ref: Pick<AgentRef, "kind">): boolean {
-	return ref.kind === "main" || ref.kind === "sub";
 }
 
 export type AgentRefExpectation = AgentRef | AgentSession;
@@ -348,14 +333,13 @@ export class AgentRegistry {
 	}
 
 	/**
-	 * Returns every alive local agent (running | idle) except the caller. Advisor
-	 * refs and external peers are roster-only rows, never addressable peers, so
-	 * they are excluded.
+	 * Returns every alive agent (running | idle) except the caller. Advisor refs
+	 * are observability-only transcripts, never peers, so they are excluded.
 	 * Flat namespace: every other agent is visible.
 	 */
 	listVisibleTo(id: string): AgentRef[] {
 		return this.list().filter(
-			ref => ref.id !== id && isLocalAgentRef(ref) && (ref.status === "running" || ref.status === "idle"),
+			ref => ref.id !== id && ref.kind !== "advisor" && (ref.status === "running" || ref.status === "idle"),
 		);
 	}
 

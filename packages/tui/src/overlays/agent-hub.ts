@@ -271,7 +271,6 @@ export interface AgentHubRemoteTranscript {
  * workspace cannot see.
  */
 function changesSummary(ref: AgentRecordLike): string {
-	if (ref.kind === "external") return "External peer · changes tracked on its host";
 	if (ref.kind === "advisor" || ref.history?.readOnly) return "Read-only · 0 LoC";
 	return "Shared workspace · per-agent LoC not attributable";
 }
@@ -892,14 +891,8 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 
 	#agentPickerProps(): PickerBody {
 		const selected = this.#rows[this.#selectedRow];
-		// Advisors are read-only transcripts and external peers act on their own
-		// host: neither can be revived or killed from this session.
-		const readOnly =
-			selected?.kind === "advisor"
-				? "Read-only advisor transcript"
-				: selected?.kind === "external"
-					? "External peer — act on its own host"
-					: undefined;
+		// Advisors are read-only transcripts: they cannot be revived or killed here.
+		const readOnly = selected?.kind === "advisor" ? "Read-only advisor transcript" : undefined;
 		const actions: TspPickerAction[] = [
 			{
 				id: "open",
@@ -947,9 +940,6 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			badges.push({ text: sanitizeDisplaySingleLine(info.tag ?? info.name ?? modelRole), title: "Model role" });
 		}
 		if (ref.kind === "advisor") badges.push({ text: "read-only", tone: "warning" });
-		if (ref.kind === "external") {
-			badges.push({ text: "external", tone: "muted", title: "Peer session running outside this process" });
-		}
 		const unread = this.#irc.unreadCount(ref.id);
 		if (unread > 0) badges.push({ text: `${unread} unread`, tone: "warning" });
 		if (this.#viewMode === "roster" && ref.parentId && ref.parentId !== MAIN_AGENT_ID) {
@@ -2166,7 +2156,6 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			fields.push(theme.fg("dim", `↳ ${sanitizeDisplaySingleLine(ref.parentId)}`));
 		}
 		if (ref.kind === "advisor") fields.push(theme.fg("warning", "read-only"));
-		else if (ref.kind === "external") fields.push(theme.fg("dim", "external"));
 		const unread = this.#irc.unreadCount(ref.id);
 		if (unread > 0) {
 			fields.push(theme.fg("warning", `⧉ ${unread}`));
@@ -2500,17 +2489,10 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#activateAgent(ref: TRecord): void {
 		this.#notice = undefined;
 		const focusAgent = this.#focusAgent;
-		// Aborted agents, advisors, peers, and transcript-only endpoints are
-		// read-only transcripts with no local session; open the in-hub viewer
-		// instead of failing ensureLive.
-		if (
-			ref.kind === "advisor" ||
-			ref.kind === "external" ||
-			ref.transcriptOnly ||
-			ref.status === "aborted" ||
-			this.#remote ||
-			!focusAgent
-		) {
+		// Aborted agents, advisors, and transcript-only endpoints are read-only
+		// transcripts with no local session; open the in-hub viewer instead of
+		// failing ensureLive.
+		if (ref.kind === "advisor" || ref.transcriptOnly || ref.status === "aborted" || this.#remote || !focusAgent) {
 			this.openChat(ref.id);
 			return;
 		}
@@ -2528,11 +2510,6 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#reviveSelected(): void {
 		const ref = this.#rows[this.#selectedRow];
 		if (!ref) return;
-		if (ref.kind === "external") {
-			this.#notice = `"${ref.id}" runs outside this session — revive it on its own host.`;
-			this.#requestRender();
-			return;
-		}
 		if (ref.transcriptOnly) {
 			this.#notice = `"${ref.id}" is a transcript-only endpoint — there is no session to revive.`;
 			this.#requestRender();
@@ -2567,11 +2544,6 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#killSelected(): void {
 		const ref = this.#rows[this.#selectedRow];
 		if (!ref) return;
-		if (ref.kind === "external") {
-			this.#notice = `"${ref.id}" runs outside this session — stop it on its own host.`;
-			this.#requestRender();
-			return;
-		}
 		if (ref.transcriptOnly) {
 			this.#notice = `"${ref.id}" is a transcript-only endpoint — nothing here to kill.`;
 			this.#requestRender();

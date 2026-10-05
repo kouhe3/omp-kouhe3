@@ -2,21 +2,14 @@ import type { AssistantMessage } from "@oh-my-pi/pi-ai";
 import { formatDoubleTap } from "@oh-my-pi/pi-tui/app-keybindings";
 import { appKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
-import {
-	AgentRegistry,
-	MAIN_AGENT_ID,
-	isLocalAgentRef,
-	type AgentRef,
-	type RegistryEvent,
-} from "../../registry/agent-registry";
+import { AgentRegistry, MAIN_AGENT_ID, type AgentRef, type RegistryEvent } from "../../registry/agent-registry";
 import type { AgentSession } from "../../session/agent-session";
 import { setTerminalTitleState } from "../../utils/title-generator";
 import type { InteractiveModeContext } from "../types";
 
 /**
  * Pick the most recently active focusable subagent. Advisors are read-only
- * transcripts, external peers live on another host (no local session to
- * attach), transcript-only endpoints carry a delivery stub instead of a
+ * transcripts, transcript-only endpoints carry a delivery stub instead of a
  * session, and aborted agents are terminal, so none is focusable; the main
  * session is the view itself, not a focus target. A focused caller passes its
  * id to cycle to the next-most-recent agent (wrapping), so repeated presses
@@ -25,7 +18,7 @@ import type { InteractiveModeContext } from "../types";
 export function pickRecentFocusableAgentId(refs: readonly AgentRef[], currentId?: string): string | undefined {
 	const ordered = refs
 		.filter(
-			ref => ref.id !== MAIN_AGENT_ID && isLocalAgentRef(ref) && !ref.transcriptOnly && ref.status !== "aborted",
+			ref => ref.id !== MAIN_AGENT_ID && ref.kind !== "advisor" && !ref.transcriptOnly && ref.status !== "aborted",
 		)
 		.filter(ref => ref.status === "running" || ref.status === "idle" || ref.status === "parked")
 		.toSorted(

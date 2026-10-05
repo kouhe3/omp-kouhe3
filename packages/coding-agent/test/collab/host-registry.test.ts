@@ -28,7 +28,6 @@ import { CollabSocket } from "@oh-my-pi/pi-coding-agent/collab/relay-client";
 import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
@@ -982,61 +981,5 @@ describe("collab host registry lifecycle (#6099)", () => {
 		expect(publishSpy).toHaveBeenCalledTimes(1);
 		const jsonFiles = (await fs.readdir(tmp)).filter(name => name.endsWith(".json"));
 		expect(jsonFiles).toHaveLength(1);
-	});
-
-	it("never mirrors external peers to guests and refuses guest control over them", async () => {
-		const { ctx } = makeHostContext();
-		host = new CollabHost(ctx);
-		await host.start(RELAY_URL, WEB_URL);
-
-		const parsed = parseCollabLink(host.link);
-		if ("error" in parsed || !parsed.writeToken) throw new Error("writable link missing");
-		const socket = new CollabSocket({ wsUrl: parsed.wsUrl, role: "guest", key: await importRoomKey(parsed.key) });
-		guestCleanups.push(() => socket.close());
-		const joined = Promise.withResolvers<void>();
-		const roster = Promise.withResolvers<Extract<CollabFrame, { t: "agents" }>>();
-		const refusal = Promise.withResolvers<Extract<CollabFrame, { t: "error" }>>();
-		/** Only frames for the change under test count: earlier ones predate it. */
-		let watching = false;
-		socket.onFrame = frame => {
-			if (frame.t === "welcome") joined.resolve();
-			if (!watching) return;
-			if (frame.t === "agents") roster.resolve(frame);
-			if (frame.t === "error") refusal.resolve(frame);
-		};
-		socket.onOpen = () =>
-			socket.send({
-				t: "hello",
-				proto: COLLAB_PROTO,
-				name: "writer",
-				writeToken: Buffer.from(parsed.writeToken!).toString("base64url"),
-			});
-		socket.connect();
-		await joined.promise;
-
-		const peerId = `peer@${crypto.randomUUID()}`;
-		watching = true;
-		const peer = AgentRegistry.global().register({
-			id: peerId,
-			displayName: "dev2",
-			kind: "external",
-			session: null,
-			sessionFile: null,
-			status: "running",
-		});
-		try {
-			// Registering the peer triggers the debounced roster broadcast. A peer
-			// must never ride it out: the wire `AgentSnapshot.kind` is `main | sub`,
-			// and a guest must not be able to chat/kill a foreign session.
-			const broadcast = await roster.promise;
-			expect(broadcast.agents.some(agent => agent.id === peerId)).toBe(false);
-
-			socket.send({ t: "agent-cmd", cmd: "kill", agentId: peerId });
-			expect((await refusal.promise).message).toContain("own host");
-			// Refused means untouched: the guest must not release another publisher's row.
-			expect(AgentRegistry.global().get(peerId)).toBe(peer);
-		} finally {
-			AgentRegistry.global().unregister(peerId);
-		}
 	});
 });

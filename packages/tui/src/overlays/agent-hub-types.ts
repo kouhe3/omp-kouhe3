@@ -35,7 +35,7 @@ export interface AgentHubSession {
 export interface AgentRecordLike {
 	id: string;
 	displayName: string;
-	kind: "main" | "sub" | "advisor" | "external";
+	kind: "main" | "sub" | "advisor";
 	parentId?: string;
 	status: AgentStatus;
 	session: AgentHubSession | null;

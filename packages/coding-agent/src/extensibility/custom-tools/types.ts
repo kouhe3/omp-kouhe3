@@ -23,7 +23,6 @@ import type { NativeToolView, RenderResultOptions } from "@oh-my-pi/pi-tui/tools
 import type { logger as PiLogger } from "@oh-my-pi/pi-utils";
 import type { Rule } from "../../capability/rule";
 import type { ScopedAsyncJobs } from "../../async";
-import type { ScopedExternalAgents } from "../../registry/external-agents";
 import type { ModelRegistry } from "../../config/model-registry";
 import type { Settings } from "../../config/settings";
 import type { ExecOptions, ExecResult } from "../../exec/exec";
@@ -94,8 +93,6 @@ export interface CustomToolContext {
 	modelRegistry: ModelRegistry;
 	/** Owner-scoped background jobs surfaced through hub jobs/wait/cancel. */
 	asyncJobs?: ScopedAsyncJobs;
-	/** Roster surface for agents running outside this process (see `ExtensionContext`). */
-	externalAgents?: ScopedExternalAgents;
 	/** Current model (may be undefined if no model is selected yet) */
 	model: Model | undefined;
 	/** Whether the agent is idle (not streaming) */

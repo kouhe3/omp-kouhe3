@@ -817,12 +817,10 @@ describe("pickRecentFocusableAgentId", () => {
 		expect(pickRecentFocusableAgentId(refs.filter(r => r.id !== "Live"))).toBe("Parked");
 	});
 
-	it("skips the main session, advisors, external peers, and aborted agents", () => {
+	it("skips the main session, advisors, and aborted agents", () => {
 		const refs = [
 			ref(MAIN_AGENT_ID, { kind: "main", lastActivity: 9000 }),
 			ref("Advisor", { kind: "advisor", lastActivity: 8000 }),
-			// A peer has no local session: focusing it could only fail revive.
-			ref("peer@dev2", { kind: "external", lastActivity: 8500 }),
 			ref("Dead", { status: "aborted", lastActivity: 7000 }),
 			ref("Worker", { status: "idle", lastActivity: 1000 }),
 		];

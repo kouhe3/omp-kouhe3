@@ -191,13 +191,10 @@ export interface ScopedAsyncJobs {
 		options?: ScopedAsyncJobRegisterOptions,
 	): string;
 	/**
-	 * Cancel a job this scope registered. Returns false when the id was not
-	 * registered by this scope, is unknown, already settled, or owned by another
-	 * agent — a plugin can cancel neither another extension's jobs, nor the
-	 * session's own built-in `bash`/`task`/`eval` jobs (they share the owner but
-	 * not this scope), nor another agent's work. A cancelled job settles as
-	 * `cancelled` and its completion is not delivered: the canceller already has
-	 * the outcome.
+	 * Cancel a job this scope registered. Returns false when the id is unknown,
+	 * already settled, or owned by another agent — a plugin can never cancel
+	 * another agent's work. A cancelled job settles as `cancelled` and its
+	 * completion is not delivered: the canceller already has the outcome.
 	 */
 	cancel(jobId: string): boolean;
 }
@@ -1345,16 +1342,9 @@ export class AsyncJobManager {
  * another agent or claim TaskTool/subagent behavior.
  */
 export function createScopedAsyncJobs(manager: AsyncJobManager, ownerId: string): ScopedAsyncJobs {
-	/** Ids this scope registered — the only jobs its `cancel` may act on. */
-	const registered = new Set<string>();
 	return {
-		register: (kind, label, run, options) => {
-			const jobId = manager.register(kind, label, run, scopedRegisterOptions(ownerId, options));
-			registered.add(jobId);
-			return jobId;
-		},
-		// Owner scoping alone would also let this scope cancel the session's own
-		// jobs (they share `ownerId`); the id set makes the boundary the scope.
-		cancel: jobId => registered.has(jobId) && manager.cancel(jobId, { ownerId }),
+		register: (kind, label, run, options) =>
+			manager.register(kind, label, run, scopedRegisterOptions(ownerId, options)),
+		cancel: jobId => manager.cancel(jobId, { ownerId }),
 	};
 }

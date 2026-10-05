@@ -194,53 +194,6 @@ describe("Agent hub Enter activation", () => {
 		hub.dispose();
 	});
 
-	it("Enter opens an external peer's read-only transcript instead of focusing it", () => {
-		const agents = new AgentRegistry();
-		agents.register({
-			id: "peer@dev2",
-			displayName: "dev2",
-			kind: "external",
-			session: null,
-			sessionFile: null,
-			status: "running",
-			activity: "editing src/index.ts",
-		});
-		const focusAgent = vi.fn(async () => {});
-		const showOverlay = vi.fn((_component: unknown, _options: unknown) => ({ hide: () => {} }));
-		const onDone = vi.fn();
-		const hub = new AgentHubOverlayComponent({
-			...createAgentHubRuntime({ settings: Settings.isolated(), registry: agents }),
-			observers: new SessionObserverRegistry(),
-			hubKeys: [],
-			onDone,
-			requestRender: () => {},
-			registry: agents,
-			irc: new IrcBus(agents),
-			focusAgent,
-			ui: {
-				requestRender: () => {},
-				requestComponentRender: () => {},
-				showOverlay,
-				setFocus: () => {},
-			} as never,
-		});
-
-		// The row is marked foreign, so a peer is never read as a local agent.
-		expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("external");
-
-		hub.handleInput("\r");
-
-		// No local session to focus: the peer's transcript opens in the hub viewer.
-		expect(focusAgent).not.toHaveBeenCalled();
-		expect(showOverlay).toHaveBeenCalledWith(expect.anything(), {
-			width: "100%",
-			margin: 0,
-			fullscreen: true,
-		});
-		expect(onDone).not.toHaveBeenCalled();
-		hub.dispose();
-	});
-
 	it("Enter opens a transcript-only endpoint's read-only transcript instead of focusing it", () => {
 		const agents = new AgentRegistry();
 		agents.register({
