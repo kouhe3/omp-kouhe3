@@ -448,6 +448,52 @@ describe("history:// protocol", () => {
 		});
 	});
 
+	it("history://<id> reads a transcript-only endpoint's session file, not its delivery stub", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "qq-c2c-deadbeef.jsonl");
+			await Bun.write(sessionFile, sessionFixtureJsonl());
+			AgentRegistry.global().register({
+				id: "qq-c2c-deadbeef",
+				displayName: "QQ 私聊渠道",
+				kind: "sub",
+				// The stub a channel endpoint registers so `agent://<id>` can deliver.
+				session: fakeLiveSession([]),
+				sessionFile,
+				status: "idle",
+				transcriptOnly: true,
+			});
+
+			const resource = await InternalUrlRouter.instance().resolve("history://qq-c2c-deadbeef");
+
+			// The stub's empty message list would render a title-only document.
+			expect(resource.content).toContain("parked hello");
+			expect(resource.content).toContain("parked reply");
+			expect(resource.sourcePath).toBe(sessionFile);
+			expect(resource.notes?.join("\n")).toContain("read-only");
+		});
+	});
+
+	it("never renders a transcript-only endpoint's empty delivery stub", async () => {
+		AgentRegistry.global().register({
+			id: "qq-c2c-abc",
+			displayName: "QQ peer",
+			kind: "sub",
+			session: fakeLiveSession([]),
+			sessionFile: null,
+			status: "idle",
+			transcriptOnly: true,
+		});
+
+		const error = await InternalUrlRouter.instance()
+			.resolve("history://qq-c2c-abc")
+			.then(
+				() => null,
+				err => err as Error,
+			);
+
+		expect(error?.message).toContain("no transcript");
+	});
+
 	it("rejects an unknown id with the list of known agents", async () => {
 		AgentRegistry.global().register({
 			id: "HubAgent",

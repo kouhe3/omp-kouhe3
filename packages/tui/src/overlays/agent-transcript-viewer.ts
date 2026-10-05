@@ -235,10 +235,11 @@ export class AgentTranscriptViewer implements Component {
 		this.#pollTimer.unref?.();
 	}
 
-	/** Advisor, external-peer, and aborted-agent transcripts are read-only. */
+	/** Advisor, external-peer, transcript-only, and aborted-agent transcripts are read-only. */
 	get #sendable(): boolean {
 		const ref = this.#deps.registry.get(this.#deps.agentId);
-		if (!ref || ref.kind === "advisor" || ref.kind === "external" || ref.status === "aborted") return false;
+		if (!ref || ref.kind === "advisor" || ref.kind === "external" || ref.transcriptOnly || ref.status === "aborted")
+			return false;
 		return Boolean(this.#deps.remote || this.#deps.lifecycle);
 	}
 

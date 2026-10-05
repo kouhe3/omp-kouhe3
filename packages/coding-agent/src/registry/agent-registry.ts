@@ -74,6 +74,15 @@ export interface AgentRef {
 	/** Null exactly when parked/aborted. */
 	session: AgentSession | null;
 	sessionFile: string | null;
+	/**
+	 * A roster row with a saved transcript but no focusable live session: an
+	 * external channel endpoint (IRC/QQ/Email) whose `session` is a
+	 * delivery-only stub. The Hub opens `sessionFile` read-only instead of
+	 * attaching, focus cycling skips the row, and `history://<id>` reads the
+	 * file rather than the stub's empty message list. Outbound delivery
+	 * (`agent://<id>`) is unaffected — the endpoint stays a normal `sub` ref.
+	 */
+	transcriptOnly?: boolean;
 	createdAt: number;
 	lastActivity: number;
 	/** Short gist of what the agent is currently doing (latest intent or tool), for the work-aware roster. Display-only. */
@@ -111,6 +120,8 @@ export interface RegisterInput {
 	parentId?: string;
 	session: AgentSession | null;
 	sessionFile?: string | null;
+	/** Mark a delivery-only endpoint: a transcript to read, no session to focus (see {@link AgentRef}). */
+	transcriptOnly?: boolean;
 	status?: AgentStatus;
 	/** Last persisted task summary, when restoring a historical agent. */
 	activity?: string;
@@ -161,6 +172,7 @@ export class AgentRegistry {
 			status: input.status ?? "running",
 			session: input.session,
 			sessionFile: input.sessionFile ?? null,
+			transcriptOnly: input.transcriptOnly,
 			createdAt: input.createdAt ?? now,
 			lastActivity: input.lastActivity ?? now,
 			activity: input.activity,

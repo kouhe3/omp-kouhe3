@@ -107,6 +107,7 @@
 ### Added
 
 - The agent roster lists external peers (agents running on another host) as read-only entries: they carry the status and activity their own host publishes, their transcript opens in the Hub when that host makes a session file readable, and kill/revive say to act on their host instead (the Hub is the only place they appear — agent-facing rosters, the focus cycle, and collab guests skip them).
+- `⏎` on a ref that declares `transcriptOnly` opens its saved transcript in the read-only viewer instead of attaching its delivery-only session, and `r`/`x` say there is no session to revive or kill rather than releasing the endpoint.
 
 ### Fixed
 

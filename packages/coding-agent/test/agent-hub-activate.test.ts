@@ -15,6 +15,7 @@ import { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-obser
 import { initTheme } from "@oh-my-pi/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
+import type { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import { visitEntriesFromFileStream } from "@oh-my-pi/pi-coding-agent/session/session-loader";
 import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
@@ -237,6 +238,91 @@ describe("Agent hub Enter activation", () => {
 			fullscreen: true,
 		});
 		expect(onDone).not.toHaveBeenCalled();
+		hub.dispose();
+	});
+
+	it("Enter opens a transcript-only endpoint's read-only transcript instead of focusing it", () => {
+		const agents = new AgentRegistry();
+		agents.register({
+			id: "qq-c2c-deadbeef",
+			displayName: "QQ 私聊渠道",
+			kind: "sub",
+			parentId: "Main",
+			// Outbound delivery goes through this stub; there is no session to attach.
+			session: { subscribe: () => () => {}, messages: [] } as unknown as AgentSession,
+			sessionFile: null,
+			status: "idle",
+			transcriptOnly: true,
+		});
+		const focusAgent = vi.fn(async () => {});
+		const showOverlay = vi.fn((_component: unknown, _options: unknown) => ({ hide: () => {} }));
+		const onDone = vi.fn();
+		const hub = new AgentHubOverlayComponent({
+			...createAgentHubRuntime({ settings: Settings.isolated(), registry: agents }),
+			observers: new SessionObserverRegistry(),
+			hubKeys: [],
+			onDone,
+			requestRender: () => {},
+			registry: agents,
+			irc: new IrcBus(agents),
+			focusAgent,
+			ui: {
+				requestRender: () => {},
+				requestComponentRender: () => {},
+				showOverlay,
+				setFocus: () => {},
+			} as never,
+		});
+
+		hub.handleInput("\r");
+
+		// Attaching the stub would raise: the declaration must route to the viewer.
+		expect(focusAgent).not.toHaveBeenCalled();
+		expect(showOverlay).toHaveBeenCalledWith(expect.anything(), {
+			width: "100%",
+			margin: 0,
+			fullscreen: true,
+		});
+		expect(onDone).not.toHaveBeenCalled();
+		hub.dispose();
+	});
+
+	it("r and x refuse to revive or kill a transcript-only endpoint", () => {
+		const agents = new AgentRegistry();
+		agents.register({
+			id: "qq-c2c-deadbeef",
+			displayName: "QQ 私聊渠道",
+			kind: "sub",
+			parentId: "Main",
+			session: { subscribe: () => () => {}, messages: [] } as unknown as AgentSession,
+			sessionFile: null,
+			status: "idle",
+			transcriptOnly: true,
+		});
+		const release = vi.fn(async () => true);
+		const hub = new AgentHubOverlayComponent({
+			...createAgentHubRuntime({
+				settings: Settings.isolated(),
+				registry: agents,
+				lifecycle: { release } as unknown as AgentLifecycleManager,
+			}),
+			observers: new SessionObserverRegistry(),
+			hubKeys: [],
+			onDone: () => {},
+			requestRender: () => {},
+			registry: agents,
+			irc: new IrcBus(agents),
+			focusAgent: vi.fn(async () => {}),
+		});
+
+		hub.handleInput("r");
+		// The notice is clipped to the roster pane (~63 columns at 120), so read it wide.
+		expect(Bun.stripANSI(hub.render(200).join("\n"))).toContain("no session to revive");
+		hub.handleInput("x");
+		expect(Bun.stripANSI(hub.render(200).join("\n"))).toContain("nothing here to kill");
+
+		// Releasing would tombstone the channel endpoint: the row is not ours to control.
+		expect(release).not.toHaveBeenCalled();
 		hub.dispose();
 	});
 

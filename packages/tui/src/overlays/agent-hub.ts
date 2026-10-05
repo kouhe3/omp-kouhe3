@@ -2500,11 +2500,13 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 	#activateAgent(ref: TRecord): void {
 		this.#notice = undefined;
 		const focusAgent = this.#focusAgent;
-		// Aborted agents, advisors, and peers are read-only transcripts with no
-		// local session; open the in-hub viewer instead of failing ensureLive.
+		// Aborted agents, advisors, peers, and transcript-only endpoints are
+		// read-only transcripts with no local session; open the in-hub viewer
+		// instead of failing ensureLive.
 		if (
 			ref.kind === "advisor" ||
 			ref.kind === "external" ||
+			ref.transcriptOnly ||
 			ref.status === "aborted" ||
 			this.#remote ||
 			!focusAgent
@@ -2528,6 +2530,11 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		if (!ref) return;
 		if (ref.kind === "external") {
 			this.#notice = `"${ref.id}" runs outside this session — revive it on its own host.`;
+			this.#requestRender();
+			return;
+		}
+		if (ref.transcriptOnly) {
+			this.#notice = `"${ref.id}" is a transcript-only endpoint — there is no session to revive.`;
 			this.#requestRender();
 			return;
 		}
@@ -2562,6 +2569,11 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		if (!ref) return;
 		if (ref.kind === "external") {
 			this.#notice = `"${ref.id}" runs outside this session — stop it on its own host.`;
+			this.#requestRender();
+			return;
+		}
+		if (ref.transcriptOnly) {
+			this.#notice = `"${ref.id}" is a transcript-only endpoint — nothing here to kill.`;
 			this.#requestRender();
 			return;
 		}

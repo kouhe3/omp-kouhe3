@@ -278,6 +278,57 @@ describe("AgentTranscriptViewer", () => {
 		expect(renderSyntheticAssistant()).toContain("SYNTHETICREPLY");
 	});
 
+	it("keeps a transcript-only endpoint read-only while still rendering its session file", () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adv-view-endpoint-"));
+		const file = path.join(dir, "qq-c2c-deadbeef.jsonl");
+		fs.writeFileSync(file, buildJsonl());
+		const makeViewer = (transcriptOnly: boolean) => {
+			const agents = new AgentRegistry();
+			agents.register({
+				id: "qq-c2c-deadbeef",
+				displayName: "QQ 私聊渠道",
+				kind: "sub",
+				parentId: "Main",
+				session: { subscribe: () => () => {}, messages: [] } as never,
+				sessionFile: file,
+				status: "idle",
+				transcriptOnly,
+			});
+			return new AgentTranscriptViewer({
+				transcript: agentTranscriptSource,
+				agentId: "qq-c2c-deadbeef",
+				registry: agents,
+				ui: { requestRender: () => {}, requestComponentRender: () => {} } as never,
+				cwd: "/tmp",
+				// A sendable ref only needs a lifecycle; the declaration must still win.
+				lifecycle: () =>
+					({ ensureLive: async () => ({ prompt: async () => {} }), release: async () => true }) as never,
+				expandKeys: ["ctrl+o"],
+				hubKeys: ["ctrl+s"],
+				requestRender: () => {},
+				onClose: () => {},
+				onHubClose: () => {},
+			});
+		};
+		const endpoint = makeViewer(true);
+		const local = makeViewer(false);
+		try {
+			endpoint.render(80); // populate the scroll view before navigating
+			endpoint.handleInput("g"); // scroll to top so the first message is visible
+			const endpointText = Bun.stripANSI(endpoint.render(80).join("\n"));
+			const localText = Bun.stripANSI(local.render(80).join("\n"));
+			// Control: the same deps without the declaration do get the prompt editor,
+			// so the missing `send` below is the declaration, not a missing dependency.
+			expect(localText).toContain("send");
+			expect(endpointText).toContain("PROMPTMARKER");
+			expect(endpointText).not.toContain("send");
+		} finally {
+			endpoint.dispose();
+			local.dispose();
+			removeSyncWithRetries(dir);
+		}
+	});
+
 	it("shows a synthetic assistant reply with tokens but no cost", () => {
 		expect(renderSyntheticAssistant({ input: 1, output: 2 })).toContain("SYNTHETICREPLY");
 	});

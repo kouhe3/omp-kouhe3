@@ -40,6 +40,8 @@ export interface AgentRecordLike {
 	status: AgentStatus;
 	session: AgentHubSession | null;
 	sessionFile: string | null;
+	/** Declares a read-only transcript endpoint: no focusable live session (see `AgentRef`). */
+	transcriptOnly?: boolean;
 	createdAt: number;
 	lastActivity: number;
 	activity?: string;

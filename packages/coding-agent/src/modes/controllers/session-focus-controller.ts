@@ -16,14 +16,17 @@ import type { InteractiveModeContext } from "../types";
 /**
  * Pick the most recently active focusable subagent. Advisors are read-only
  * transcripts, external peers live on another host (no local session to
- * attach), and aborted agents are terminal, so none is focusable; the main
+ * attach), transcript-only endpoints carry a delivery stub instead of a
+ * session, and aborted agents are terminal, so none is focusable; the main
  * session is the view itself, not a focus target. A focused caller passes its
  * id to cycle to the next-most-recent agent (wrapping), so repeated presses
  * walk the roster instead of sticking on the newest row.
  */
 export function pickRecentFocusableAgentId(refs: readonly AgentRef[], currentId?: string): string | undefined {
 	const ordered = refs
-		.filter(ref => ref.id !== MAIN_AGENT_ID && isLocalAgentRef(ref) && ref.status !== "aborted")
+		.filter(
+			ref => ref.id !== MAIN_AGENT_ID && isLocalAgentRef(ref) && !ref.transcriptOnly && ref.status !== "aborted",
+		)
 		.filter(ref => ref.status === "running" || ref.status === "idle" || ref.status === "parked")
 		.toSorted(
 			(a, b) =>

@@ -416,7 +416,10 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 
 		const notes: string[] = [];
 		let messages: unknown[];
-		if (ref.session) {
+		// A transcript-only endpoint's `session` is a delivery stub whose message
+		// list is always empty: its retained transcript file is the conversation,
+		// and without one there is nothing to serve (the disk scan below decides).
+		if (ref.session && !ref.transcriptOnly) {
 			messages = ref.session.messages;
 			notes.push("Source: live session");
 		} else if (ref.sessionFile) {

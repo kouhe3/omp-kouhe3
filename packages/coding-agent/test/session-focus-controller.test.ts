@@ -829,6 +829,15 @@ describe("pickRecentFocusableAgentId", () => {
 		expect(pickRecentFocusableAgentId(refs)).toBe("Worker");
 	});
 
+	it("skips transcript-only endpoints — a delivery stub has no session to attach", () => {
+		const refs = [
+			ref("qq-c2c-deadbeef", { transcriptOnly: true, lastActivity: 9000 }),
+			ref("Worker", { status: "idle", lastActivity: 1000 }),
+		];
+		expect(pickRecentFocusableAgentId(refs)).toBe("Worker");
+		expect(pickRecentFocusableAgentId(refs.filter(r => r.id !== "Worker"))).toBeUndefined();
+	});
+
 	it("returns undefined when no agent has a focusable session state", () => {
 		expect(pickRecentFocusableAgentId([])).toBeUndefined();
 		expect(
