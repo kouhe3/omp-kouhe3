@@ -7,11 +7,11 @@
 - 上游：`origin` = `https://github.com/can1357/oh-my-pi.git`
 - 上游镜像（提 PR 用）：`fork` = `https://github.com/kouhe3/oh-my-pi.git`
 - 承载 `kouhe3-patch` 的独立仓库：`https://github.com/kouhe3/omp-kouhe3.git`（本地 remote 名 `kouhe3`，默认分支即 `kouhe3-patch`，仅放 fork 提交）
-- 基准 tag `v18.6.0` 已随分支推到该仓库：fresh clone 可直接 `git rebase v18.6.0`
+- 基准 tag `v18.6.1` 已随分支推到该仓库：fresh clone 可直接 `git rebase v18.6.1`
 - 承载全部 fork 提交的分支：`kouhe3-patch`
-- **基准 tag：`v18.6.0`**（`git log -1 v18.6.0` = `89d2610993 chore: bump version to 18.6.0`，与分支 merge-base 完全一致）。同步只跟 tag 走，不跟 `main`。
+- **基准 tag：`v18.6.1`**（`git log -1 v18.6.1` = `2a2c6dcbbb chore: bump version to 18.6.1`，与分支 merge-base 完全一致；同日稍后发布的 `v18.6.2` 未采用）。同步只跟 tag 走，不跟 `main`。
 
-> 状态（2026-10-04）：`kouhe3-patch` = `v18.6.0` + 8 个提交、35 个文件（+1171/−85）。相对 `origin/main` 落后 9 个提交——`main` 上带错误，故不作为基准。
+> 状态（2026-10-05）：`kouhe3-patch` = `v18.6.1` + 12 个提交（8 个功能/修复 + 4 个文档）、36 个文件（+1391/−85）。`main` 携带未解决错误，故基准始终取 release tag。
 
 ---
 
@@ -29,20 +29,20 @@
 
 ## 2. 变更清单
 
-`git log --oneline v18.6.0..HEAD`（旧 → 新）：
+`git log --oneline v18.6.1..HEAD`（旧 → 新）：
 
 | # | commit | 类型 | 上游归属 | 内容 |
 |---|---|---|---|---|
-| 1 | `13d61d4882` | feat(async) | 携带 #6909 | `AsyncJobType` 从闭集 `"bash"\|"task"\|"eval"` 泛化为受校验的 kind（1–64 位 `[a-z0-9._:-]`）；新增 owner-scoped 注册面 `ctx.asyncJobs.register(kind,label,run,options)`，`ownerId` 钉死、核心字段 allowlist 构造；接进 `ExtensionContext`/`CustomToolContext`/`ExtensionRunner`/`sdk`；TUI `JobSnapshot.type` 放开为 `string`，`async-result` 徽标对 kind/id 做 `replaceTabs` + 截断。修掉 #6909 review 三处：kind 渲染未净化、自定义 job id 未校验、`agentId` 运行时可注入。 |
-| 2 | `07647abfe2` | feat(async) | fork-only | `ScopedAsyncJobs.cancel(jobId)`：取消必须走宿主，才会落定为 `cancelled` 并抑制完成投递（扩展自行 abort 会被记成 failed 并把错误当结果投递给模型）。 |
-| 3 | `16fffa82eb` | fix(async) | fork-only | `cancel` 从 owner 级收紧为 **scope 级**：同 owner 的内置 `bash`/`task`/`eval` 与同会话其他扩展的 job 不可被本 scope 取消。 |
-| 4 | `29339d1251` | feat(hub) | fork-only | registry 新增 `AgentKind = "external"`；Hub 中外部 peer 为只读条目（`isRunning` 恒 false，不带 `session`/`sessionFile`）。 |
-| 5 | `a74255ced8` | feat(registry) | fork-only | 主会话扩展上下文新增 `ctx.externalAgents`（`upsert`/`setStatus`/`setActivity`/`remove`/`dispose`），发布的每行钉死 `kind=external` + `session=null`，只能驱动自己发布的行。 |
-| 6 | `304a44d89e` | fix(registry) | fork-only | 外部 peer 只在 Hub 出现：agent 可见 roster、focus 轮转、collab guest、`history://`、IRC 群发一律排除（新增 `isLocalAgentRef`）；修掉 sdk 里 `hasSession` 未置位导致 `ctx.externalAgents` 生产不可达的错误门；`upsert` 只刷新本 scope 宣告过的 id。 |
-| 7 | `00159d5dae` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
-| 8 | `22fd555641` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
+| 1 | `75d11d2b47` | feat(async) | 携带 #6909 | `AsyncJobType` 从闭集 `"bash"\|"task"\|"eval"` 泛化为受校验的 kind（1–64 位 `[a-z0-9._:-]`）；新增 owner-scoped 注册面 `ctx.asyncJobs.register(kind,label,run,options)`，`ownerId` 钉死、核心字段 allowlist 构造；接进 `ExtensionContext`/`CustomToolContext`/`ExtensionRunner`/`sdk`；TUI `JobSnapshot.type` 放开为 `string`，`async-result` 徽标对 kind/id 做 `replaceTabs` + 截断。修掉 #6909 review 三处：kind 渲染未净化、自定义 job id 未校验、`agentId` 运行时可注入。 |
+| 2 | `7ddc9e2819` | feat(async) | fork-only | `ScopedAsyncJobs.cancel(jobId)`：取消必须走宿主，才会落定为 `cancelled` 并抑制完成投递（扩展自行 abort 会被记成 failed 并把错误当结果投递给模型）。 |
+| 3 | `7c4cd68353` | fix(async) | fork-only | `cancel` 从 owner 级收紧为 **scope 级**：同 owner 的内置 `bash`/`task`/`eval` 与同会话其他扩展的 job 不可被本 scope 取消。 |
+| 4 | `efe7b33eea` | feat(hub) | fork-only | registry 新增 `AgentKind = "external"`；Hub 中外部 peer 为只读条目（`isRunning` 恒 false，不带 `session`/`sessionFile`）。 |
+| 5 | `379788d1af` | feat(registry) | fork-only | 主会话扩展上下文新增 `ctx.externalAgents`（`upsert`/`setStatus`/`setActivity`/`remove`/`dispose`），发布的每行钉死 `kind=external` + `session=null`，只能驱动自己发布的行。 |
+| 6 | `c0d5053348` | fix(registry) | fork-only | 外部 peer 只在 Hub 出现：agent 可见 roster、focus 轮转、collab guest、`history://`、IRC 群发一律排除（新增 `isLocalAgentRef`）；修掉 sdk 里 `hasSession` 未置位导致 `ctx.externalAgents` 生产不可达的错误门；`upsert` 只刷新本 scope 宣告过的 id。 |
+| 7 | `7f9c0ca49a` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
+| 8 | `f791e34373` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
 
-改动文件面（35 个文件，+1171/−85）：
+改动文件面（36 个文件，+1391/−85，含 `FORK.md` 与两处 `CHANGELOG.md`）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
 - `packages/coding-agent/src/registry/{agent-registry,external-agents}.ts`、`internal-urls/{history-protocol,registry-helpers}.ts`、`irc/bus.ts`、`collab/host.ts`、`modes/{agent-hub-runtime,controllers/session-focus-controller}.ts`、`task/executor.ts` — 外部 peer 的 roster/排除面
@@ -75,7 +75,7 @@ interface HostAsyncJobs {
 | 宿主 | `ctx.asyncJobs` | 行为 |
 |---|---|---|
 | `omp-kouhe3`（本分支） | 有 | 后台任务进 Hub jobs 表（含 pid/进度）、受会话并发上限约束、双向取消、完成由宿主投递 |
-| 官方 `omp`（≤ v18.6.0） | 无 | 回退私有管理器：功能完整，但不出现在 jobs 表/`wait` 集成中，投递由扩展自己做 |
+| 官方 `omp`（未合并 #6909） | 无 | 回退私有管理器：功能完整，但不出现在 jobs 表/`wait` 集成中，投递由扩展自己做 |
 
 ---
 
@@ -100,7 +100,7 @@ interface HostAsyncJobs {
 ```bash
 cd ~/.omp/agent/extensions/pwsh7
 bun scripts/pack-fork-dep.ts          # 可加 --fork <path> / --vendor <dir>
-# packed vendor\pi-coding-agent-012e804e.tgz (packages/coding-agent@012e804e, v18.6.0)
+# packed vendor\pi-coding-agent-f3a2ce75.tgz (packages/coding-agent@f3a2ce75, v18.6.1)
 bun install && bun run typecheck && bun test
 ```
 
@@ -109,15 +109,15 @@ bun install && bun run typecheck && bun test
 脚本行为：
 
 1. 在 `<fork>/packages/coding-agent` 跑 `bun x tsgo -p tsconfig.publish.json` → `dist/types/**/*.d.ts`；
-2. 就地重指 manifest（`types` + 118 条 `exports[*].types` → `./dist/types/…`，并把 `dist/types` 加进 `files`）后 `bun pm pack`，产物按 **`packages/coding-agent` 子树 hash** 命名进扩展的 `vendor/`：`pi-coding-agent-<tree8>.tgz`。用子树而不是 HEAD——根目录的 docs 提交不会改名，实测 `304a44d89e` 与 `bca1fe582c` 的子树都是 `012e804e`；
+2. 就地重指 manifest（`types` + 118 条 `exports[*].types` → `./dist/types/…`，并把 `dist/types` 加进 `files`）后 `bun pm pack`，产物按 **`packages/coding-agent` 子树 hash** 命名进扩展的 `vendor/`：`pi-coding-agent-<tree8>.tgz`。用子树而不是 HEAD——根目录的 docs 提交不会改名（v18.6.0 基准下 `304a44d89e` 与 `bca1fe582c` 的子树都是 `012e804e`，换到 v18.6.1 后是 `f3a2ce75`）；
 3. 自动把扩展 `package.json` 的 devDependency 改成 `file:vendor/pi-coding-agent-<tree8>.tgz`；
-4. `finally` 里还原 fork manifest——**fork checkout 跑完保持干净**（只剩 untracked `FORK.md`）。
+4. `finally` 里还原 fork manifest——**fork checkout 跑完保持干净**（`git status` 无输出）。
 
-实测（2026-10-04，fork `kouhe3-patch` = `bca1fe582c`，包 v18.6.0，devDep = `file:vendor/pi-coding-agent-012e804e.tgz`）：
+实测（2026-10-05，fork `kouhe3-patch`，包 v18.6.1，`packages/coding-agent` 子树 `f3a2ce75`，devDep = `file:vendor/pi-coding-agent-f3a2ce75.tgz`）：
 
 ```
-bun install      → 160 packages installed
-bun run typecheck → 0 error   （含断言 ctx.asyncJobs / ctx.externalAgents 类型可用的探针文件）
+bun install       → ok（换包后增量安装 22 个 package；首次安装见 2026-10-04 记录的 160 个）
+bun run typecheck → 0 error    （含断言 ctx.asyncJobs / ctx.externalAgents 类型可用的探针文件）
 bun test          → 85 pass / 0 fail
 ```
 
@@ -150,18 +150,18 @@ bun test          → 85 pass / 0 fail
 ```bash
 git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
-git rebase v18.6.0            # 换成当前基准 tag；分支 8 个提交逐个重放
+git rebase v18.6.1            # 换成当前基准 tag；分支 12 个提交逐个重放
 bun install
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
 bun run gen:glyphs            # 第 8 笔改过码点；重跑应零 diff
 git diff --check
 ```
 
-- 当前基准 `v18.6.0` = `89d2610993`，与分支 merge-base 一致；换基准时同步改基准 tag 与本节说明。
+- 当前基准 `v18.6.1` = `2a2c6dcbbb`，与分支 merge-base 一致；换基准时同步改基准 tag 与本节说明。
 - 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。
 - **首次推送到空仓库前先解 shallow**：`git rev-parse --is-shallow-repository` 为 `true` 时直接 push 会得到 `remote unpack failed: index-pack failed` 或 `shallow update not allowed`——shallow 边界之外的祖先对象必须由本地提供。本检出曾只差 20 个提交，`git fetch --unshallow origin` 5 秒解决。
 - 首次推送整仓约 650 MB / 2 分 45 秒；上游历史里带着若干 `.turbo/cache/*.tar.zst`（52–54 MB），GitHub 会给出 >50 MB 的 GH001 警告（非 LFS，可忽略）。
-- rebase 后**必须人工核对 `packages/*/CHANGELOG.md`**：按尾部上下文匹配会把「在 `[Unreleased]` 下插入条目」的 hunk 无冲突地插到已发布段之后（本仓已发生过两次）。可用 `bun scripts/fix-changelogs.ts --check` 程序化校验。
+- rebase 后**核对 `packages/*/CHANGELOG.md`**：按尾部上下文匹配会把「在 `[Unreleased]` 下插入条目」的 hunk 无冲突地插到已发布段之后（本仓发生过两次）。2026-10-05 rebase 到 v18.6.1 时已逐笔重写 fork 的 changelog hunk，使其锚定文件顶部（紧随 `## [Unreleased]`），后续 rebase 应能正确落位；仍用 `bun scripts/fix-changelogs.ts --check` 校验结构，并人工确认条目在 `[Unreleased]` 内。
 - `gen:glyphs` 只识别原始 PUA 字符与 `\u{...}`/`\uXXXX` 转义，**不识别十六进制字面量**；码点常量与 `glyph-bundle.json` 必须成对同步，否则 handshake 报 `registered codepoint not served from glossary`。
 
 ---
@@ -190,6 +190,8 @@ bun run gen:glyphs && git diff --exit-code packages/tui/src/theme/glyph-bundle.j
 
 判定标准：与 stash 出的基线（基准 tag）逐项比对，**未新增失败**即通过（kitty keyboard / OSC 11 / `file://` URL / theme-init / timeout 属环境族，可忽略）。
 
+实测（2026-10-05，rebase 到 v18.6.1 后）：`bun test packages/coding-agent packages/tui` 在本分支为 19386 pass / 55 fail；同一命令在干净上游检出（`C:/tmp/oh-my-pi`，`6d8552d7f9` = v18.6.0+9）为 19343 pass / 58 fail，两边失败集合互有 1–3 个 flaky 差集，其余逐项重合——环境族全覆盖：provider 凭据缺失（`No API key found for ollama`、`no default and no authed model`）、本地 native 产物过期（`vcs.requireGit().commitTree is not a function`，v18.6.0 与 v18.6.1 的 `worktree.ts` 与 `packages/natives/native` 均无差异）、5s 超时、OSC 11 / kitty keyboard、`file://` URL。**fork 相关测试文件零失败。**
+
 ---
 
 ## 7. 回退
@@ -203,9 +205,9 @@ cd C:/tmp/omp-kouhe3/packages/coding-agent && bun link
 
 单个特性回退：
 
-- 后台任务面 / 外部 peer → `git revert 13d61d4882 07647abfe2 16fffa82eb 29339d1251 a74255ced8 304a44d89e`
-- PTY 竞态（#12486）→ `git revert 00159d5dae`
-- 品牌图标（#12570）→ `git revert 22fd555641`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
+- 后台任务面 / 外部 peer → `git revert 75d11d2b47 7ddc9e2819 7c4cd68353 efe7b33eea 379788d1af c0d5053348`
+- PTY 竞态（#12486）→ `git revert 7f9c0ca49a`
+- 品牌图标（#12570）→ `git revert f791e34373`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
 
 ---
 
