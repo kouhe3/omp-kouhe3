@@ -120,6 +120,10 @@
 - Corrected tool behavior and configuration documentation for `read`, background `bash`, Python evaluation, replace editing, goal removal, and `advisor.immuneTurns`.
 - Fixed custom glob backends from hanging indefinitely; scans now respect the tool deadline and report incomplete results when necessary.
 - Fixed `--resume <path>` from silently creating a new session for a missing path; it now reports the missing path, consistent with `--fork <path>` and `--resume <id>`.
+### Added
+
+- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
+- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.8.0] - 2026-10-07
 
@@ -312,10 +316,6 @@
 - Fixed snapcompact's short final frames preventing vision-backed sessions from continuing on backends that reject 32px-or-smaller images ([#14355](https://github.com/can1357/oh-my-pi/issues/14355)).
 - Fixed the agent's `goal` calls asking for approval under `--approval-mode write`, which paused goal-mode loops at `complete`; `always-ask` still prompts for goal changes but not `get` ([#14368](https://github.com/can1357/oh-my-pi/issues/14368))
 - Fixed MCP server connection progress popping up a toast for every server that connects or fails in native terminals such as Tern; it now shows only in the classic terminal transcript
-### Added
-
-- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
-- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.6.1] - 2026-10-04
 
