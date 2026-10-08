@@ -11,7 +11,13 @@
 - 承载全部 fork 提交的分支：`kouhe3-patch`
 - **基准 tag：`v18.8.3`**（`git log -1 v18.8.3` = `3e3c488a chore: bump version to 18.8.3`，与分支 merge-base 完全一致；npm `latest` 也是 18.8.3）。同步只跟 tag 走，不跟 `main`（`v18.8.0` 那轮的 tag commit 曾恰好等于 `main` HEAD，属巧合，不改变这条规则）。
 
-> 状态（2026-10-07，基准 `v18.8.3`）：`kouhe3-patch` = `v18.8.3` + 17 个提交、27 个文件（+897/−62）。净生效的是下表 6 笔 + 6 笔文档 + 1 笔本文件维护（`dfa7640a64`）；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。基准只取**已发版**的 tag（§5）。**每次跨基准 rebase 都会重写全部 fork commit hash**（`v18.6.1` → `v18.8.0` → `v18.8.3` 已连改两轮），下表与 §7 已按 `v18.8.3` 更新；换基准后照 §5「换基准后必跑的三步」走。
+> 状态（截至 `6ddcbc4c19`，基准 `v18.8.3`）：`kouhe3-patch` = `v18.8.3` + 19 个提交、27 个文件（+912/−62）。净生效的是下表 6 笔；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾），其余为文档提交（含本文件的维护提交）。基准只取**已发版**的 tag（§5）。**每次跨基准 rebase 都会重写全部 fork commit hash**（`v18.6.1` → `v18.8.0` → `v18.8.3` 已连改两轮），下表与 §7 已按 `v18.8.3` 更新；换基准后照 §5「换基准后必跑的三步」走。
+>
+> **上面两个计数故意不追平**：它们把 `FORK.md` 自己算在内，任何一次文档提交都会让它们漂移（改本文件就会变），所以只标定到某个快照 commit、不随文档更新。要当前值就直接量：
+> ```bash
+> git log --oneline v18.8.3..HEAD | wc -l
+> git diff --shortstat v18.8.3...HEAD
+> ```
 
 ---
 
@@ -44,7 +50,7 @@
 
 > **已撤销**：曾有一组「外部 peer」实现（`AgentKind = "external"` + `ctx.externalAgents` + 各处排除面，提交 `4310689496`/`75c7d059af`/`9dbf3dbd6c`），2026-10-05 整体 revert（提交 `8775c4199f` `revert(registry,tui): 撤掉外部 peer`）。原因：那种 peer 只读、**不可投递**（`irc/bus.ts` 直接拒绝）、且被 agent roster / completions / `history://` / collab guest 全部排除 —— 与「IRC 上对等通话」所需的面完全相反，留着只会被误用。要跨机 roster 可见性时可以再评估，届时应给它投递面而不是复用只读形状。
 
-改动文件面（27 个文件，+897/−62；含 `FORK.md` 与两处 `CHANGELOG.md`。**这个数字包含本文件自身**，改 FORK.md 就会漂移，以 `git diff --shortstat v18.8.3...HEAD` 为准）：
+改动文件面（27 个文件，+912/−62（截至 `6ddcbc4c19`）；含 `FORK.md` 与两处 `CHANGELOG.md`。**这个数字包含本文件自身**，改 FORK.md 就会漂移，以 `git diff --shortstat v18.8.3...HEAD` 为准）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
 - `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 6 行）
@@ -154,7 +160,7 @@ git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次�
 git fetch origin --tags
 # 基准必须已发版：tag 存在 ≠ 发布成功（发布失败/中断的 tag 不算基准）
 curl -s https://registry.npmjs.org/@oh-my-pi/pi-coding-agent | grep -q "\"18.8.3\":" && echo released
-git rebase v18.8.3            # 换成当前基准 tag；分支 17 个提交逐个重放
+git rebase v18.8.3            # 换成当前基准 tag；分支的 fork 提交逐个重放
 bun install
 bun run build:native          # 本机 addon 必须与包版本同版（见下方「换基准后必跑的三步」）
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
@@ -165,7 +171,7 @@ git diff --check
 
 - **基准只取「已发版」的 tag**：上游 `git tag` 只代表 CI 被触发，发布失败/中断的 tag 没有对应版本，取它等于把 `main` 上未验证的问题引进来。采用前确认该版本真的发布过（npm registry 上有该版本，或 `bun install -g @oh-my-pi/pi-coding-agent@<ver>` 能装到）。反例：`v18.6.2` 有 tag，但 npm 上没有 18.6.2（`latest` 仍是 18.6.1），故**不作基准**。
 - 当前基准 `v18.8.3` = `3e3c488a`，与分支 merge-base 一致，且 npm `latest` = 18.8.3（已发版）；换基准时同步改基准 tag 与本节说明。 **`main` HEAD 恰好等于 tag 只算巧合**，不构成跟 `main` 的理由。
-- 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。该 sha 是 `packages/coding-agent` 的**子树** hash（`git rev-parse --short=8 HEAD:packages/coding-agent`），本轮落定后为 `b6986d45`（即 `pi-coding-agent-b6986d45.tgz`）——**先把本轮变更提交再跑**，未提交的修改不进这个 hash。
+- 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。该 sha 是 `packages/coding-agent` 的**子树** hash（`git rev-parse --short=8 HEAD:packages/coding-agent`），本轮落定后为 `b6986d45`（即 `pi-coding-agent-b6986d45.tgz`）——**先把本轮变更提交再跑**（未提交的修改不进这个 hash），提交后用 `git rev-parse --short=8 HEAD:packages/coding-agent` 复核。
 - **全局 `omp` 依赖 `~/.bun/install/global/node_modules` 这一层**：`@oh-my-pi/pi-coding-agent` 与 `@oh-my-pi/pi-tui` 都要 link 到 fork（`cd packages/<pkg> && bun link`）；只 link 前者时 fork 的 coding-agent 会配上一份发行版 tui，Hub 等 tui 侧改动不生效。另外 `packages/coding-agent/dist/cli.js` 是 `bun run gen:bundle` 的产物（`bun pm pack` 的 `prepack` 会顺带重建），改完源码要重跑一次。
 - **验证 fork 行为别直接跑扩展自带的 e2e**：`Bun.spawn(["omp"])` 会先命中 `<ext>/node_modules/.bin/omp`，也就是扩展自己钉住的发行版（`tencent_qq_bot` 是 18.4.3），于是永远走「宿主不支持」分支。用 `QQBOT_E2E_OMP=<fork>/packages/coding-agent/src/cli.ts` 覆盖宿主，才是 fork 的真实行为。
 - **首次推送到空仓库前先解 shallow**：`git rev-parse --is-shallow-repository` 为 `true` 时直接 push 会得到 `remote unpack failed: index-pack failed` 或 `shallow update not allowed`——shallow 边界之外的祖先对象必须由本地提供。本检出曾只差 20 个提交，`git fetch --unshallow origin` 5 秒解决。
