@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `⏎` on a ref that declares `transcriptOnly` opens its saved transcript in the read-only viewer instead of attaching its delivery-only session, and `r`/`x` say there is no session to revive or kill rather than releasing the endpoint.
+
+### Fixed
+
+- Fixed the Nerd Font status-line brand icon rendering as a rotating arrow instead of π ([#11802](https://github.com/can1357/oh-my-pi/issues/11802), [#12570](https://github.com/can1357/oh-my-pi/pull/12570) by [@kouhe3](https://github.com/kouhe3)).
+
 ## [18.8.5] - 2026-10-08
 
 ### Added
@@ -12,13 +20,6 @@
 
 - Fixed `/usage` dashboard cards reordering their limit rows by usage; rows now keep the provider's window order (e.g. 5 hour → weekly → monthly) ([#14953](https://github.com/can1357/oh-my-pi/pull/14953) by [@H4vC](https://github.com/H4vC))
 - Fixed Cmd+A, Cmd+C, Cmd+X and Shift+arrow selection doing nothing in the Tern prompt while Vim mode is in Insert mode ([#14954](https://github.com/can1357/oh-my-pi/pull/14954) by [@H4vC](https://github.com/H4vC))
-### Added
-
-- `⏎` on a ref that declares `transcriptOnly` opens its saved transcript in the read-only viewer instead of attaching its delivery-only session, and `r`/`x` say there is no session to revive or kill rather than releasing the endpoint.
-
-### Fixed
-
-- Fixed the Nerd Font status-line brand icon rendering as a rotating arrow instead of π ([#11802](https://github.com/can1357/oh-my-pi/issues/11802), [#12570](https://github.com/can1357/oh-my-pi/pull/12570) by [@kouhe3](https://github.com/kouhe3)).
 
 ## [18.8.4] - 2026-10-08
 

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
+- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
+
 ## [18.8.5] - 2026-10-08
 
 ### Added
@@ -33,10 +38,6 @@
 ### Removed
 
 - Removed the `PI_SUBPROCESS_CMD` environment variable; subagents run in-process and never read it ([#14632](https://github.com/can1357/oh-my-pi/pull/14632) by [@jorgoose](https://github.com/jorgoose))
-### Added
-
-- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
-- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.8.4] - 2026-10-08
 
