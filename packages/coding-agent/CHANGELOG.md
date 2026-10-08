@@ -67,6 +67,10 @@
 - Fixed quadratic slowdown in `omp cleanse` on large tsc/clippy/golangci output ([#14706](https://github.com/can1357/oh-my-pi/pull/14706) by [@H4vC](https://github.com/H4vC))
 - Fixed documents served as `application/octet-stream` being downloaded twice ([#14708](https://github.com/can1357/oh-my-pi/pull/14708) by [@H4vC](https://github.com/H4vC))
 - Fixed collab TUI guests rebuilding the transcript per token ([#14715](https://github.com/can1357/oh-my-pi/pull/14715) by [@H4vC](https://github.com/H4vC))
+### Added
+
+- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
+- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.8.3] - 2026-10-07
 
@@ -120,10 +124,6 @@
 - Corrected tool behavior and configuration documentation for `read`, background `bash`, Python evaluation, replace editing, goal removal, and `advisor.immuneTurns`.
 - Fixed custom glob backends from hanging indefinitely; scans now respect the tool deadline and report incomplete results when necessary.
 - Fixed `--resume <path>` from silently creating a new session for a missing path; it now reports the missing path, consistent with `--fork <path>` and `--resume <id>`.
-### Added
-
-- Added an owner-scoped background-job API to extension and custom-tool contexts (`ctx.asyncJobs.register`, `cancel`), so plugin-defined job kinds take part in Hub listing, `wait`, cancellation, and completion delivery ([#6909](https://github.com/can1357/oh-my-pi/pull/6909) by [@incloon](https://github.com/incloon)).
-- A registered ref can declare `transcriptOnly`: a delivery-only endpoint (an external channel peer such as an IRC or QQ bridge) whose saved transcript is readable while it has no focusable live session. The Agent Hub opens that session file read-only, focus cycling and `r`/`x` skip it, and `history://<id>` reads the file instead of the endpoint's empty message list; `agent://<id>` delivery is unaffected.
 
 ## [18.8.0] - 2026-10-07
 

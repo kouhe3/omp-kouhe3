@@ -23,6 +23,13 @@
 
 - Fixed relative file links in Tern assistant replies opening against the folder omp was started in; they now open the file in the session's working directory ([#14879](https://github.com/can1357/oh-my-pi/pull/14879) by [@H4vC](https://github.com/H4vC))
 - Fixed Tern modals with no clickable exit: BTW history, git shortcuts and autoresearch gain a Close button, plan review a Cancel button, the agent transcript viewer and `/annotate` review a top-right `esc` that runs Esc, and the `/move` dialog Accept, Cancel and Confirm buttons; new `escCloseButton()` builds the `esc` keycap button ([#14894](https://github.com/can1357/oh-my-pi/pull/14894) by [@H4vC](https://github.com/H4vC))
+### Added
+
+- `⏎` on a ref that declares `transcriptOnly` opens its saved transcript in the read-only viewer instead of attaching its delivery-only session, and `r`/`x` say there is no session to revive or kill rather than releasing the endpoint.
+
+### Fixed
+
+- Fixed the Nerd Font status-line brand icon rendering as a rotating arrow instead of π ([#11802](https://github.com/can1357/oh-my-pi/issues/11802), [#12570](https://github.com/can1357/oh-my-pi/pull/12570) by [@kouhe3](https://github.com/kouhe3)).
 
 ## [18.8.2] - 2026-10-07
 
@@ -35,13 +42,6 @@
 ### Fixed
 
 - Fixed the native ask dialog on TSP surfaces so it replaces the composer instead of opening as a modal over the transcript, keeping the transcript readable and scrollable.
-### Added
-
-- `⏎` on a ref that declares `transcriptOnly` opens its saved transcript in the read-only viewer instead of attaching its delivery-only session, and `r`/`x` say there is no session to revive or kill rather than releasing the endpoint.
-
-### Fixed
-
-- Fixed the Nerd Font status-line brand icon rendering as a rotating arrow instead of π ([#11802](https://github.com/can1357/oh-my-pi/issues/11802), [#12570](https://github.com/can1357/oh-my-pi/pull/12570) by [@kouhe3](https://github.com/kouhe3)).
 
 ## [18.8.0] - 2026-10-07
 
