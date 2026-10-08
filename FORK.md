@@ -7,11 +7,11 @@
 - 上游：`origin` = `https://github.com/can1357/oh-my-pi.git`
 - 上游镜像（提 PR 用）：`fork` = `https://github.com/kouhe3/oh-my-pi.git`
 - 承载 `kouhe3-patch` 的独立仓库：`https://github.com/kouhe3/omp-kouhe3.git`（本地 remote 名 `kouhe3`，默认分支即 `kouhe3-patch`，仅放 fork 提交）
-- 基准 tag `v18.8.0` 已随分支推到该仓库：fresh clone 可直接 `git rebase v18.8.0`
+- 基准 tag `v18.8.3` 已随分支推到该仓库：fresh clone 可直接 `git rebase v18.8.3`
 - 承载全部 fork 提交的分支：`kouhe3-patch`
-- **基准 tag：`v18.8.0`**（`git log -1 v18.8.0` = `4ef97c8826 chore: bump version to 18.8.0`，与分支 merge-base 完全一致；npm `latest` 也是 18.8.0）。同步只跟 tag 走，不跟 `main`——本轮 `v18.8.0` 的 tag commit **恰好等于** `main` HEAD，所以「rebase 到 `main`」和「rebase 到该 tag」这次结果相同；但这是事后校验出来的巧合，不是跟 `main` 的依据，下次仍先认 tag（§5）。
+- **基准 tag：`v18.8.3`**（`git log -1 v18.8.3` = `3e3c488a chore: bump version to 18.8.3`，与分支 merge-base 完全一致；npm `latest` 也是 18.8.3）。同步只跟 tag 走，不跟 `main`（`v18.8.0` 那轮的 tag commit 曾恰好等于 `main` HEAD，属巧合，不改变这条规则）。
 
-> 状态（2026-10-07，基准 `v18.8.0`）：`kouhe3-patch` = `v18.8.0` + 16 个提交、27 个文件（+839/−62）。净生效的是下表 6 笔 + 6 笔文档；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。基准只取**已发版**的 tag（§5）。跨基准 rebase 会重写全部 fork commit hash，下表与 §7 的 hash 已按 `v18.8.0` 更新。**本轮换基准踩了三个坑，换基准后照 §5「换基准后必跑的三步」走。**
+> 状态（2026-10-07，基准 `v18.8.3`）：`kouhe3-patch` = `v18.8.3` + 17 个提交、27 个文件（+897/−62）。净生效的是下表 6 笔 + 6 笔文档 + 1 笔本文件维护（`dfa7640a64`）；另有 3 笔「外部 peer」实现已被 1 笔 revert 撤销（§2 末尾）。基准只取**已发版**的 tag（§5）。**每次跨基准 rebase 都会重写全部 fork commit hash**（`v18.6.1` → `v18.8.0` → `v18.8.3` 已连改两轮），下表与 §7 已按 `v18.8.3` 更新；换基准后照 §5「换基准后必跑的三步」走。
 
 ---
 
@@ -35,16 +35,16 @@
 
 | # | commit | 类型 | 上游归属 | 内容 |
 |---|---|---|---|---|
-| 1 | `78816cb490` | feat(async) | 携带 #6909 | `AsyncJobType` 从闭集 `"bash"\|"task"\|"eval"` 泛化为受校验的 kind（1–64 位 `[a-z0-9._:-]`）；新增 owner-scoped 注册面 `ctx.asyncJobs.register(kind,label,run,options)`，`ownerId` 钉死、核心字段 allowlist 构造；接进 `ExtensionContext`/`CustomToolContext`/`ExtensionRunner`/`sdk`；TUI `JobSnapshot.type` 放开为 `string`，`async-result` 徽标对 kind/id 做 `replaceTabs` + 截断。修掉 #6909 review 三处：kind 渲染未净化、自定义 job id 未校验、`agentId` 运行时可注入。 |
-| 2 | `b876231cc0` | feat(async) | fork-only | `ScopedAsyncJobs.cancel(jobId)`：取消必须走宿主，才会落定为 `cancelled` 并抑制完成投递（扩展自行 abort 会被记成 failed 并把错误当结果投递给模型）。 |
-| 3 | `999aa8763a` | fix(async) | fork-only | `cancel` 从 owner 级收紧为 **scope 级**：同 owner 的内置 `bash`/`task`/`eval` 与同会话其他扩展的 job 不可被本 scope 取消。 |
-| 4 | `64a3bed73b` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
-| 5 | `c59f4fbc23` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
-| 6 | `9392b1528a` | feat(coding-agent,tui) | 修复 #13843 | `AgentRef`/`RegisterInput` 新增 `transcriptOnly?: boolean`（`register()` 逐字段拷贝，`AgentRecordLike` 镜像）：声明「有转录、无可聚焦实时会话」。Hub `#activateAgent` 对这类行直接 `openChat`，`r`/`x` 拒绝 revive/kill（否则 `release` 会把渠道端点 tombstone）；viewer `#sendable` 为 false；`pickRecentFocusableAgentId` 跳过；`history://<id>` 在取 `ref.session` 前排除它，改读 `sessionFile`，无文件时报 `no transcript` 而非渲染空 stub。 |
+| 1 | `636faa05dc` | feat(async) | 携带 #6909 | `AsyncJobType` 从闭集 `"bash"\|"task"\|"eval"` 泛化为受校验的 kind（1–64 位 `[a-z0-9._:-]`）；新增 owner-scoped 注册面 `ctx.asyncJobs.register(kind,label,run,options)`，`ownerId` 钉死、核心字段 allowlist 构造；接进 `ExtensionContext`/`CustomToolContext`/`ExtensionRunner`/`sdk`；TUI `JobSnapshot.type` 放开为 `string`，`async-result` 徽标对 kind/id 做 `replaceTabs` + 截断。修掉 #6909 review 三处：kind 渲染未净化、自定义 job id 未校验、`agentId` 运行时可注入。 |
+| 2 | `e9be06d3b3` | feat(async) | fork-only | `ScopedAsyncJobs.cancel(jobId)`：取消必须走宿主，才会落定为 `cancelled` 并抑制完成投递（扩展自行 abort 会被记成 failed 并把错误当结果投递给模型）。 |
+| 3 | `5bf3ae8f81` | fix(async) | fork-only | `cancel` 从 owner 级收紧为 **scope 级**：同 owner 的内置 `bash`/`task`/`eval` 与同会话其他扩展的 job 不可被本 scope 取消。 |
+| 4 | `40d02bd929` | fix(tools) | 携带 #12486 | `Screen` 增加 `#disposed`：`feed`/`resize` 丢弃迟到 PTY chunk（原会写进已释放的 kitty-vt-wasm 抛 `KittyTerminal used after dispose()` 并作为 uncaught exception 杀掉整个会话）；`snapshot`/`png` 改抛可捕获的 `Session stopped`。 |
+| 5 | `4b4acdbb38` | fix(tui) | 携带 #12570（上游 CLOSED，标记 intentional） | `icon.omp` 由 `U+F0D57`（Nerd Fonts v3 = `md-axis_z_rotate_clockwise`，旋转箭头）改为 `U+F03FF`（`md-pi`，π）；`GLYPH_CONFIRMATION_CODEPOINT` 同步 `0xf03ff`；`glyph-bundle.json` 重生成后零 diff。 |
+| 6 | `4e2dc47f12` | feat(coding-agent,tui) | 修复 #13843 | `AgentRef`/`RegisterInput` 新增 `transcriptOnly?: boolean`（`register()` 逐字段拷贝，`AgentRecordLike` 镜像）：声明「有转录、无可聚焦实时会话」。Hub `#activateAgent` 对这类行直接 `openChat`，`r`/`x` 拒绝 revive/kill（否则 `release` 会把渠道端点 tombstone）；viewer `#sendable` 为 false；`pickRecentFocusableAgentId` 跳过；`history://<id>` 在取 `ref.session` 前排除它，改读 `sessionFile`，无文件时报 `no transcript` 而非渲染空 stub。 |
 
-> **已撤销**：曾有一组「外部 peer」实现（`AgentKind = "external"` + `ctx.externalAgents` + 各处排除面，提交 `cf30cef1cc`/`6e3c09ba83`/`7efdc997ba`），2026-10-05 整体 revert（提交 `0b0c31e32b` `revert(registry,tui): 撤掉外部 peer`）。原因：那种 peer 只读、**不可投递**（`irc/bus.ts` 直接拒绝）、且被 agent roster / completions / `history://` / collab guest 全部排除 —— 与「IRC 上对等通话」所需的面完全相反，留着只会被误用。要跨机 roster 可见性时可以再评估，届时应给它投递面而不是复用只读形状。
+> **已撤销**：曾有一组「外部 peer」实现（`AgentKind = "external"` + `ctx.externalAgents` + 各处排除面，提交 `4310689496`/`75c7d059af`/`9dbf3dbd6c`），2026-10-05 整体 revert（提交 `8775c4199f` `revert(registry,tui): 撤掉外部 peer`）。原因：那种 peer 只读、**不可投递**（`irc/bus.ts` 直接拒绝）、且被 agent roster / completions / `history://` / collab guest 全部排除 —— 与「IRC 上对等通话」所需的面完全相反，留着只会被误用。要跨机 roster 可见性时可以再评估，届时应给它投递面而不是复用只读形状。
 
-改动文件面（27 个文件，+839/−62；含 `FORK.md` 与两处 `CHANGELOG.md`。**这个数字包含本文件自身**，改 FORK.md 就会漂移，以 `git diff --shortstat v18.8.0...HEAD` 为准）：
+改动文件面（27 个文件，+897/−62；含 `FORK.md` 与两处 `CHANGELOG.md`。**这个数字包含本文件自身**，改 FORK.md 就会漂移，以 `git diff --shortstat v18.8.3...HEAD` 为准）：
 
 - `packages/coding-agent/src/async/job-manager.ts`、`extensibility/{extensions,custom-tools}/{types,runner}.ts`、`sdk.ts` — 后台任务面接线
 - `packages/coding-agent/src/registry/agent-registry.ts`、`internal-urls/history-protocol.ts`、`modes/controllers/session-focus-controller.ts` — 转录端点声明与三处消费面（见上表第 6 行）
@@ -153,8 +153,8 @@ bun test          → 85 pass / 0 fail
 git rev-parse --is-shallow-repository   # 必须是 false，见下方「首次推送」
 git fetch origin --tags
 # 基准必须已发版：tag 存在 ≠ 发布成功（发布失败/中断的 tag 不算基准）
-curl -s https://registry.npmjs.org/@oh-my-pi/pi-coding-agent | grep -q "\"18.8.0\":" && echo released
-git rebase v18.8.0            # 换成当前基准 tag；分支 16 个提交逐个重放
+curl -s https://registry.npmjs.org/@oh-my-pi/pi-coding-agent | grep -q "\"18.8.3\":" && echo released
+git rebase v18.8.3            # 换成当前基准 tag；分支 17 个提交逐个重放
 bun install
 bun run build:native          # 本机 addon 必须与包版本同版（见下方「换基准后必跑的三步」）
 bun run check:ts              # oxlint + oxfmt + tsgo（16 个包）
@@ -164,8 +164,8 @@ git diff --check
 ```
 
 - **基准只取「已发版」的 tag**：上游 `git tag` 只代表 CI 被触发，发布失败/中断的 tag 没有对应版本，取它等于把 `main` 上未验证的问题引进来。采用前确认该版本真的发布过（npm registry 上有该版本，或 `bun install -g @oh-my-pi/pi-coding-agent@<ver>` 能装到）。反例：`v18.6.2` 有 tag，但 npm 上没有 18.6.2（`latest` 仍是 18.6.1），故**不作基准**。
-- 当前基准 `v18.8.0` = `4ef97c8826`，与分支 merge-base 一致，且 npm `latest` = 18.8.0（已发版）；换基准时同步改基准 tag 与本节说明。 **`main` HEAD 恰好等于 tag 只算巧合**，不构成跟 `main` 的理由。
-- 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。该 sha 是 `packages/coding-agent` 的**子树** hash（`git rev-parse --short=8 HEAD:packages/coding-agent`），本轮落定后为 `b7d323d3`（即 `pi-coding-agent-b7d323d3.tgz`）——**先把本轮变更提交再跑**，未提交的修改不进这个 hash。
+- 当前基准 `v18.8.3` = `3e3c488a`，与分支 merge-base 一致，且 npm `latest` = 18.8.3（已发版）；换基准时同步改基准 tag 与本节说明。 **`main` HEAD 恰好等于 tag 只算巧合**，不构成跟 `main` 的理由。
+- 换基准后 **必须重跑 `bun scripts/pack-fork-dep.ts`**：sha 变了，tarball 与 devDependency 说明符会一起更新。该 sha 是 `packages/coding-agent` 的**子树** hash（`git rev-parse --short=8 HEAD:packages/coding-agent`），本轮落定后为 `b6986d45`（即 `pi-coding-agent-b6986d45.tgz`）——**先把本轮变更提交再跑**，未提交的修改不进这个 hash。
 - **全局 `omp` 依赖 `~/.bun/install/global/node_modules` 这一层**：`@oh-my-pi/pi-coding-agent` 与 `@oh-my-pi/pi-tui` 都要 link 到 fork（`cd packages/<pkg> && bun link`）；只 link 前者时 fork 的 coding-agent 会配上一份发行版 tui，Hub 等 tui 侧改动不生效。另外 `packages/coding-agent/dist/cli.js` 是 `bun run gen:bundle` 的产物（`bun pm pack` 的 `prepack` 会顺带重建），改完源码要重跑一次。
 - **验证 fork 行为别直接跑扩展自带的 e2e**：`Bun.spawn(["omp"])` 会先命中 `<ext>/node_modules/.bin/omp`，也就是扩展自己钉住的发行版（`tencent_qq_bot` 是 18.4.3），于是永远走「宿主不支持」分支。用 `QQBOT_E2E_OMP=<fork>/packages/coding-agent/src/cli.ts` 覆盖宿主，才是 fork 的真实行为。
 - **首次推送到空仓库前先解 shallow**：`git rev-parse --is-shallow-repository` 为 `true` 时直接 push 会得到 `remote unpack failed: index-pack failed` 或 `shallow update not allowed`——shallow 边界之外的祖先对象必须由本地提供。本检出曾只差 20 个提交，`git fetch --unshallow origin` 5 秒解决。
@@ -209,11 +209,22 @@ Get-ChildItem packages -Recurse -Directory -Filter '@oh-my-pi' | ForEach-Object 
 
 换基准前这类失效只是「测试噪音」，**换基准后会直接变成启动失败**：import 一个上游新增、本机 addon 没有的导出，在链接期就抛 `SyntaxError`，`omp` 连 TUI 都进不去（§6 的 2026-10-05 实测记录曾把它归入可忽略的环境族）。
 
-> 只查 `typeof` 会被骗：加载器在 addon 过期时把缺失导出回退成**调用即抛**的占位函数（`missingNativeExport`），所以 `typeof encodeSixelAsync === "function"` 并不代表可用，必须真调一次（§6 给了命令）。
+> 只查 `typeof` 会被骗：加载器在 addon 过期时把缺失导出回退成**调用即抛**的占位函数（`missingNativeExport`），所以 `typeof encodeSixelAsync === "function"` 并不代表可用，必须真调一次（§6 给了命令；注意 `decodeSixelToPngAsync` 收的是 **SIXEL 字节**，传字符串会报 `Failed to create reference from TypedArray`）。
+
+**`build:native` 会出现「裸 could not compile」的假失败。** `v18.8.0` → `v18.8.3` 这轮遇到一次：`bun run build:native` 报 5 个 `error: could not compile`（`image`、`ttf-parser`、`skrifa`、`pi-builtins`、`jj-lib`，退出码 1），但 cargo 日志里**一条 rustc 诊断都没有**（只有汇总行 + 巨长命令行）。单独编译其中一个却成功，整条链路重跑也成功——属于环境/瞬时失败（并发压力、文件锁），不是代码问题。判别与恢复：
+
+```bash
+# 复刻脚本的 RUSTFLAGS，直接编译 addon 的依赖图，让 rustc 诊断真正打出来
+RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=x86-64-v3" \
+  cargo build --profile local -p pi-natives
+# 成功 ⇒ 源码没问题，重跑 bun run build:native 即可
+```
+
+注意两条路径用**不同的 target 目录**（直接 cargo 是 `target/local`；napi 带 `--target` 走 `target/x86_64-pc-windows-msvc/local`），互不复用缓存，所以上面这条不会加速 napi 那次；另外构建期间别同时跑其他重活，优先串行。
 
 **第 3 步：修正 fork changelog 的落位。**
 
-跨基准 rebase 会重放 fork 的 changelog hunk。本轮 2 处条目被无冲突地插进了**已发布的 `## [18.6.2]` 段**（`coding-agent`、`tui` 各 2 条），既违反「已发布段不可改」，又让 `[Unreleased]` 空着：
+跨基准 rebase 会重放 fork 的 changelog hunk。本轮 2 处条目被无冲突地插进了**已发布的 `## [18.6.2]` 段**（`coding-agent`、`tui` 各 2 条），既违反「已发布段不可改」，又让 `[Unreleased]` 空着（`v18.8.0` → `v18.8.3` 这轮同样复现，2 处条目落进 `## [18.8.2]`，所以这不是一次性事故，跨基准必跑这一步）：
 
 ```bash
 bun scripts/fix-changelogs.ts --check   # 报 "N promoted item(s)" 就是要修
@@ -247,7 +258,7 @@ bun test packages/coding-agent/test/agent-hub-activate.test.ts \
 bun run gen:glyphs && git diff --exit-code packages/tui/src/theme/glyph-bundle.json
 
 # 本机 addon 版本戳与真实可用性（typeof 会被占位函数骗，必须真调一次）
-bun -e 'const m = await import("@oh-my-pi/pi-natives"); const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4nGP8z8DAwMDAwMDEAAQMDAwAJQAB/8k0sQAAAABJRU5ErkJggg==", "base64"); console.log((await m.encodeSixelAsync(new Uint8Array(png), 4, 4)).slice(0, 2));'
+bun -e 'const png = new Uint8Array(await Bun.file("packages/ai/test/data/red-circle.png").arrayBuffer()); const m = await import("@oh-my-pi/pi-natives"); const s = await m.encodeSixelAsync(png, 64, 64); const r = await m.decodeSixelToPngAsync(new TextEncoder().encode(s)); console.log("sixel", s.length, "png", r.length, "magic", r[0]===0x89);'
 
 # 冒烟：CLI 起得来（--version / --help / stats / --smoke-test）
 bun run ci:test:smoke
@@ -258,6 +269,8 @@ bun run ci:test:smoke
 实测（2026-10-05，rebase 到 v18.6.1 后）：`bun test packages/coding-agent packages/tui` 在本分支为 19386 pass / 55 fail；同一命令在干净上游检出（`C:/tmp/oh-my-pi`，`6d8552d7f9` = v18.6.0+9）为 19343 pass / 58 fail，两边失败集合互有 1–3 个 flaky 差集，其余逐项重合——环境族全覆盖：provider 凭据缺失（`No API key found for ollama`、`no default and no authed model`）、本地 native 产物过期（`vcs.requireGit().commitTree is not a function`，v18.6.0 与 v18.6.1 的 `worktree.ts` 与 `packages/natives/native` 均无差异）、5s 超时、OSC 11 / kitty keyboard、`file://` URL。**fork 相关测试文件零失败。**
 
 实测（2026-10-07，rebase 到 v18.8.0 后）：本轮的失败模式正是上段里被归为可忽略的「本地 native 产物过期」。跨了 933 个上游提交（`v18.6.1` → `v18.8.0`）之后它从测试噪音升级成启动即抛 `SyntaxError`。教训：环境族失败要把「凭据/数据缺失」与「本机产物过期」分开看，**后者在换基准后必须先修，再拿测试结果当基线**（修法与诊断命令见 §5）。
+
+实测（2026-10-08，rebase 到 v18.8.3 并重建 addon 后）：`bun run build:native` 装好 180.4 MB addon（戳 18.8.3）后 `omp` 启动正常（只剩非 TTY 报错，原文的 `SyntaxError: Export named 'encodeSixelAsync' not found` 消失），`bun run ci:test:smoke` = `smoke-test: ok`；native 侧 `encodeSixelAsync` → `decodeSixelToPngAsync` 往返成功（1073 B SIXEL → 846 B PNG，magic 正确）；本节所列 9 个 fork/SIXEL 相关测试文件（含 `packages/tui/test/image-budget.test.ts`、`packages/coding-agent/test/git-tui-stream.test.ts`）**215 pass / 0 fail**，845 断言 / 21.4 s。静态门禁 `bun run check:ts`（oxlint + oxfmt + 16 个包 tsgo）全绿：5840 个文件格式校验通过，16 个包 `check:types` 均 0 错误。
 
 ---
 
@@ -272,10 +285,10 @@ cd C:/tmp/omp-kouhe3/packages/coding-agent && bun link
 
 单个特性回退：
 
-- 后台任务面 → `git revert 78816cb490 b876231cc0 999aa8763a`
-- PTY 竞态（#12486）→ `git revert 64a3bed73b`
-- 品牌图标（#12570）→ `git revert c59f4fbc23`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
-- 转录端点 / transcript-only refs（#13843）→ `git revert 9392b1528a`
+- 后台任务面 → `git revert 636faa05dc e9be06d3b3 5bf3ae8f81`
+- PTY 竞态（#12486）→ `git revert 40d02bd929`
+- 品牌图标（#12570）→ `git revert 4b4acdbb38`（注意同步 `glyph-protocol.ts` 并重跑 `gen:glyphs`）
+- 转录端点 / transcript-only refs（#13843）→ `git revert 4e2dc47f12`
 
 ---
 
